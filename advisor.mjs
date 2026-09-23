@@ -4,7 +4,7 @@
 // fastCanWin / fastWaits 交叉验证过，0 处不一致。这里只负责把那些数字翻译成
 // 人能读的话，不做任何额外的猜测。
 
-import { legalActions, tileType, NAMES } from './game.mjs';
+import { legalActions, tileType, NAMES, evaluateWin, fastWaits } from './game.mjs';
 import {
   handShape, shantenStandard, shantenQidui, shantenPeng,
   ukeire, visibleCounts, dangerOf, maxThreat, EYE_258,
@@ -225,20 +225,72 @@ export function advise(view, player = 0) {
   const top = rows[0];
   top.recommended = true;
 
+  // 听牌与 1 向听时列出具体的牌和场上剩余张数：
+  //   听牌   —— 真正能胡的牌（走完整的胡牌判定：有皮不能胡、两赖禁屁胡、4 点起胡）
+  //   1 向听 —— 摸到就能听牌的牌
+  const shown = rows.slice(0, 3);
+  for (const r of shown) {
+    const x = toXiangting(r.shanten);
+    if (x === 0) r.waits = waitsAfterDiscard(view, player, r.isJoker ? null : r.tile, r.isJoker ? r.tile : null, vis);
+    else if (x === 1) r.next = (r.uk.list || []).map((e) => ({ ...e, joker: e.t === view.joker })).sort((a, b) => b.live - a.live);
+  }
   const tenpai = toXiangting(top.shanten) === 0;
   return {
     mode: 'discard',
     headline: `建议打 {TILE}`,
     headlineTile: top.tile,
     detail: tenpai
-      ? `打完就听牌，等 ${top.uk.kinds} 种牌。`
-      : `打完 ${xiangtingText(top.shanten)}，有效牌 ${top.uk.kinds} 种。`,
+      ? (top.waits.some((w) => w.ok)
+        ? `打完听牌：听 ${tileCountText(top.waits.filter((w) => w.ok))}。`
+          + (top.waits.some((w) => !w.ok) ? `（${top.waits.filter((w) => !w.ok).map(tileLabel).join('、')}打点不够 4，胡不了）` : '')
+        : top.waits.length
+          ? `打完听 ${tileCountText(top.waits)}，但眼下打点不够 4，胡不了：没人开口、也没杠，屁胡每家只付 2。等有人开口或自己开杠才能胡。`
+          : '打完听牌，但眼下胡不了（手上有皮要先杠掉）。')
+      : toXiangting(top.shanten) === 1 && top.next?.length
+        ? `打完 1 向听，摸到 ${tileCountText(top.next)} 就听牌。`
+        : `打完 ${xiangtingText(top.shanten)}，有效牌 ${top.uk.kinds} 种。`,
     kongNote,
     rows: rows.slice(0, 3),
     minS,
     warnings,
     best: top.action,
   };
+}
+
+/** "三万（剩 2）、六万（剩 3），共 5 张" */
+export function tileCountText(list) {
+  const total = list.reduce((s, x) => s + x.live, 0);
+  return `${list.map((x) => `${tileLabel(x)}（剩 ${x.live}）`).join('、')}，共 ${total} 张`;
+}
+
+/** 赖子标成「赖子南」，免得「听南」被误会成要一张真南风 */
+export function tileLabel(x) {
+  return `${x.joker ? '赖子' : ''}${NAMES[x.t]}`;
+}
+
+/**
+ * 打掉 discardId 之后听哪些牌，以及每种在场上还剩几张。
+ * 牌型听牌（fastWaits）与完整胡牌判定（evaluateWin：自摸或任一家点炮）取并集；
+ * ok = false 表示牌型听了但眼下胡不了（最常见：没人开口也没杠，硬屁胡每家只付 2 点，够不上 4 点起胡）。
+ * 皮子本身不算听牌。
+ */
+function waitsAfterDiscard(view, player, discardId, jokerDiscardId, vis) {
+  const drop = discardId ?? jokerDiscardId;
+  const hand = view.hands[player].filter((id) => id !== drop);
+  const shape = new Set(fastWaits(view, player, hand));
+  const out = [];
+  for (let t = 0; t < 34; t += 1) {
+    if (t === 31 || t === view.indicatorType) continue;
+    const own = hand.filter((id) => tileType(id) === t).length;
+    if (own >= 4) continue;
+    const id = [t * 4, t * 4 + 1, t * 4 + 2, t * 4 + 3].find((x) => !hand.includes(x));
+    const probe = { ...view, hands: view.hands.map((h, p) => (p === player ? hand : h)) };
+    const selfProbe = { ...probe, hands: probe.hands.map((h, p) => (p === player ? [...hand, id] : h)) };
+    let ok = !!evaluateWin(selfProbe, player, { selfDraw: true });
+    for (let d = 1; !ok && d < 4; d += 1) ok = !!evaluateWin(probe, player, { from: (player + d) % 4, tile: id });
+    if (ok || shape.has(t)) out.push({ t, live: Math.max(0, 4 - vis[t] - own), ok, joker: t === view.joker });
+  }
+  return out;
 }
 
 /** 留着这张牌的潜在价值，只用于同分裁决。字牌 0；幺九 1；二八 2；三到七 3；2/5/8 另加 2。 */

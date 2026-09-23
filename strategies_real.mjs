@@ -88,6 +88,9 @@ const DEFAULTS = {
   holdLastSkin: false,
   // 配合 holdLastSkin：向听数大于此值时照常马上杠（Infinity = 一直留到听牌）
   holdSkinMaxXt: Infinity,
+  // 保命模式（见 effectiveProfile）：null = 不启用
+  surviveBelow: null,
+  surviveMode: { defense: 2.0, foldShanten: 1, foldThreat: 2.0, callNeedsGain: 2, voluntaryKongShanten: 0 },
 };
 
 export const PROFILES = {
@@ -125,12 +128,23 @@ export const PROFILES = {
   },
 };
 
+/**
+ * 保命模式：锦标赛（300 点起、跌破 0 出局）里自己的分数跌到 surviveBelow 以下时，
+ * 换成低波动打法——防守更重、更早弃和、少开口（开口让自己输牌时赔付 ×2）、不主动开杠。
+ * surviveBelow 为 null 时不启用（非锦标赛的分数从 0 起、常为负，不能用这个判断）。
+ */
+function effectiveProfile(P, view, player) {
+  if (!Number.isFinite(P.surviveBelow) || view.scores[player] >= P.surviveBelow) return P;
+  return { ...P, ...P.surviveMode };
+}
+
 export function makePolicy(profile) {
-  const P = typeof profile === 'string' ? PROFILES[profile] : profile;
-  if (!P) throw Error(`unknown profile ${profile}`);
+  const P0 = typeof profile === 'string' ? PROFILES[profile] : profile;
+  if (!P0) throw Error(`unknown profile ${profile}`);
 
   return function policy(state, player) {
     const view = visibleState(state, player);
+    const P = effectiveProfile(P0, view, player);
     const actions = legalActions(view, player);
     if (!actions.length) return null;
 

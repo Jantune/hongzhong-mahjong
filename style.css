@@ -339,3 +339,10 @@ dialog{color:var(--ink);border:1px solid #dce0d1;background:var(--surface);borde
   font-size:12px;line-height:1.6;display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
 .tour-hint button{min-height:36px;padding:6px 12px;border-radius:7px;background:var(--green);color:#fff;font-size:12px}
 .tournament-badge{font-style:normal;font-size:9px;color:#8a5a14;background:#fbf3dc;border:1px solid #e8d08e;border-radius:4px;padding:1px 5px}
+/* 建议表里的听牌 / 进听清单 */
+.advice-table small .adv-label{display:inline-block;margin-right:4px;font-weight:700;color:var(--ink)}
+.adv-tile{display:inline-flex;align-items:baseline;gap:2px;margin:2px 5px 2px 0;padding:1px 6px;border-radius:5px;background:#eef3ea;color:var(--ink);white-space:nowrap}
+.adv-tile b{font-size:10px;color:#2f7a52}
+.adv-tile.is-dead{opacity:.5;text-decoration:line-through}
+.advice-table small em{font-style:normal;color:var(--muted);margin-left:2px;white-space:nowrap}
+.adv-tile.is-noway{background:#f6e7e3;color:#a8453a;text-decoration:line-through}

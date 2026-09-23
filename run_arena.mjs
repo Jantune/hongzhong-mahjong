@@ -51,6 +51,9 @@ function main() {
     blocks: Number(a.blocks || 120),
     seedStart: Number(a.seedStart || 10000),
     cap: Number(a.cap || 50),   // 与游戏默认封顶一致
+    ...(a.start !== undefined ? { startScore: Number(a.start) } : {}),   // 飞局模式的起始分
+    ...(a.bust !== undefined ? { bust: Number(a.bust) } : {}),           // 分数 <= bust 即飞
+    ...(a.maxRounds !== undefined ? { maxRounds: Number(a.maxRounds) } : {}),  // 一场最多打几局
     shard: Number(a.shard || 0),
     shardCount: Number(a.of || 1),
   };

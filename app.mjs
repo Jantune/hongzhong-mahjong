@@ -564,6 +564,22 @@ function hideAdvice() {
 
 }
 
+/** 建议表"打完之后"一格的第二行：听牌列出听的牌，1 向听列出能进听的牌，各带场上剩余张数 */
+function adviceTilesLine(r) {
+  const fmt = (list) => {
+    const total = list.reduce((s, x) => s + x.live, 0);
+    const items = list.map((x) => `<span class="adv-tile${x.live === 0 ? ' is-dead' : ''}${x.ok === false ? ' is-noway' : ''}" title="${x.ok === false ? '牌型听了，但打点不够 4，胡不了' : `场上还剩 ${x.live} 张`}">${x.joker ? '赖子' : ''}${TILE_NAMES[x.t]}<b>${x.live}</b></span>`).join('');
+    return `${items}<em>共 ${total} 张</em>`;
+  };
+  if (r.waits) {
+    if (!r.waits.length) return '<span class="adv-label">暂时胡不了</span>';
+    const label = r.waits.some((w) => w.ok) ? '听' : '听（打点不够 4）';
+    return `<span class="adv-label">${label}</span>${fmt(r.waits)}`;
+  }
+  if (r.next?.length) return `<span class="adv-label">进听</span>${fmt(r.next)}`;
+  return `有效牌 ${r.uk.kinds} 种`;
+}
+
 function renderAdvice(state) {
   if (!adviceRoot) return;
   if (!adviceToggle?.checked || state.phase === 'done') return hideAdvice();
@@ -589,7 +605,7 @@ function renderAdvice(state) {
     // 进张数和向听放同一格：窄屏下四列放不下，而进张恰恰是排序依据，不能被藏掉。
     const body = adv.rows.map((r) => `<tr class="${r.recommended ? 'is-best' : ''}" data-action="select-tile" data-tile-id="${r.action.tile}" title="点一下就选中这张牌">
       <td>${tileMarkup(state, r.action.tile, { compact: true })}</td>
-      <td>${xiangtingText(r.shanten)}<small>有效牌 ${r.uk.kinds} 种</small></td>
+      <td>${xiangtingText(r.shanten)}<small>${adviceTilesLine(r)}</small></td>
       <td class="danger-${r.danger.rank}">${r.danger.label}<small>场上剩 ${r.danger.live}</small></td>
     </tr>`).join('');
     table = `<table class="advice-table"><thead><tr><th>打这张</th><th>打完之后</th><th>放炮风险</th></tr></thead><tbody>${body}</tbody></table>`;
@@ -922,7 +938,7 @@ function announceWin(state) {
   const cap = Number(state.rules?.cap) || 50;
   $('win-eyebrow').textContent = tier === 'gold'
     ? `胡家倍数 ×${r.score.W} · 达到 ${cap} 封顶`
-    : tier === 'big' ? (r.score?.big ? '大 胡' : `${BIG_TOTAL} 点以上`) : '';
+    : tier === 'big' && r.score?.big ? '大 胡' : '';
   const totalEl = $('win-total');
   totalEl.hidden = tier === 'normal';
   if (tier !== 'normal') countUp(totalEl, r.score?.total || 0, tier === 'gold' ? 1400 : 1000);
@@ -955,9 +971,7 @@ function announceWin(state) {
   if (tier !== 'normal') launchConfetti(tier);
   // 先撤 hidden 再加动画类，否则过渡不会触发
   requestAnimationFrame(() => banner.classList.add('is-in'));
-  const quick = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
-  const stay = { normal: 2200, big: 3400, gold: 4600 }[tier];
-  winTimer = window.setTimeout(() => closeWinBanner(true), quick ? 900 : stay);
+  // 三档横幅都不自动消失，玩家点一下才关
 }
 
 // ---- 本场排名 --------------------------------------------------------

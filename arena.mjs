@@ -126,24 +126,29 @@ export function runDuplicate({ lineup, strategies, blocks = 100, seedStart = 100
 }
 
 /**
- * 飞局模式：<= -300 结束（默认封顶 50，与游戏一致），座位排列跑满 24 种。
+ * 飞局模式：分数 <= bust 结束（默认封顶 50，与游戏一致），座位排列跑满 24 种。
+ * 游戏里的锦标赛是 300 点起、跌破 0 结束，对应 startScore = 300、bust = -1。
+ * 每场记录名次（同分取较好名次），blockPoints 里带 rankSum / matches，便于按块配对比较名次。
  */
 export function runBust({ lineup, strategies, blocks = 20, seedStart = 20000, cap = 50,
-  bust = -300, maxRounds = 80, shard = 0, shardCount = 1 } = {}) {
+  bust = -300, startScore = 0, maxRounds = 80, shard = 0, shardCount = 1 } = {}) {
   const names = [...new Set(lineup)];
   const stats = {}; for (const n of names) stats[n] = emptyStat(n);
-  for (const n of names) { stats[n].matches = 0; stats[n].matchWins = 0; stats[n].busted = 0; stats[n].finalSum = 0; }
+  for (const n of names) {
+    Object.assign(stats[n], { matches: 0, matchWins: 0, busted: 0, finalSum: 0, rankSum: 0, unfinished: 0, matchRounds: 0 });
+  }
   const blockPoints = [];
   let stalled = 0, roundsTotal = 0;
 
   for (let b = 0; b < blocks; b += 1) {
     if (b % shardCount !== shard) continue;
     const seed = seedStart + b * 1009;
-    const local = {}; for (const n of names) local[n] = { pts: 0, rounds: 0 };
+    const local = {}; for (const n of names) local[n] = { pts: 0, rounds: 0, rankSum: 0, matches: 0, busted: 0, firsts: 0 };
     for (const perm of PERMS) {
       const seatNames = [0, 1, 2, 3].map(s => lineup[perm[s]]);
       const policies = seatNames.map(n => strategies[n]);
-      let state = createGame({ cap, seed, dealer: 0, scores: [0, 0, 0, 0], round: 1 });
+      const s0 = startScore;
+      let state = createGame({ cap, seed, dealer: 0, scores: [s0, s0, s0, s0], round: 1 });
       let r = 0;
       while (r < maxRounds && !state.scores.some(s => s <= bust)) {
         const before = [...state.scores];
@@ -161,10 +166,16 @@ export function runBust({ lineup, strategies, blocks = 20, seedStart = 20000, ca
       }
       const final = [...state.scores];
       const order = [0, 1, 2, 3].sort((x, y) => final[y] - final[x]);
+      const finished = final.some(s => s <= bust);
       for (let p = 0; p < 4; p += 1) {
         const s = stats[seatNames[p]];
-        s.matches += 1; s.finalSum += final[p];
-        if (final[p] <= bust) s.busted += 1;
+        const rank = 1 + final.filter(v => v > final[p]).length;   // 同分取较好名次
+        s.matches += 1; s.finalSum += final[p]; s.rankSum += rank; s.matchRounds += r;
+        if (!finished) s.unfinished += 1;
+        if (final[p] <= bust) { s.busted += 1; local[seatNames[p]].busted += 1; }
+        if (rank === 1) local[seatNames[p]].firsts += 1;
+        local[seatNames[p]].rankSum += rank;
+        local[seatNames[p]].matches += 1;
       }
       stats[seatNames[order[0]]].matchWins += 1;
     }

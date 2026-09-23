@@ -275,9 +275,10 @@ export function ukeire(counts, jokers, needGroups, vis, opt = {}) {
   const pongW = opt.pongW ?? 0;
   const chiW = opt.chiW ?? 0;
   const shantenOf = opt.shanten || rawShanten;
-  if (rawShanten(counts, jokers, needGroups) === 0) return { kinds: 0, tiles: 0 };
+  if (rawShanten(counts, jokers, needGroups) === 0) return { kinds: 0, tiles: 0, list: [] };
   const base = shantenOf(counts, jokers, needGroups);
   let kinds = 0, tiles = 0;
+  const list = [];            // 每种有效牌与它在场上还剩几张（建议面板展示用）
   for (let t = 0; t < 34; t += 1) {
     if (counts[t] >= 4) continue;
     counts[t] += 1;
@@ -286,13 +287,14 @@ export function ukeire(counts, jokers, needGroups, vis, opt = {}) {
     if (s >= base - 1e-9) continue;
     kinds += 1;
     const live = Math.max(0, 4 - (vis ? vis[t] : 0) - counts[t]);
+    list.push({ t, live });
     // 自摸 1 个来源；手里已有对子则三家弃牌都能碰；顺子只有上家能吃
     let ways = 1;
     if (counts[t] >= 2) ways += pongW * 3;
     else if (t < 27) ways += chiW;
     tiles += live * ways;
   }
-  return { kinds, tiles };
+  return { kinds, tiles, list };
 }
 
 /** 胡家自身倍数 W 的估算（牌型 base 之外的杠与硬胡）。 */
