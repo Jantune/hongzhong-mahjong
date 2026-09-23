@@ -1156,7 +1156,9 @@ $('sound-volume')?.addEventListener('input', event => { saveSoundSetting('volume
 document.querySelectorAll('[data-preview-seat]').forEach(button => button.addEventListener('click', () => {
   const seat = Number(button.dataset.previewSeat);
   audio.playVoice(seat, 'pong', 2);
-  window.setTimeout(() => audio.playVoice(seat, 't2', 1), 430);
+  // 等「碰！」念完再接牌名：固定延时会在「碰！」较长的嗓音上撞进叫牌优先规则，牌名被跳过
+  const wait = audio.voiceRemainingMs();
+  window.setTimeout(() => audio.playVoice(seat, 't2', 1), (wait || 600) + 120);
 }));
 $('ai-seats')?.addEventListener('change', (event) => {
   const sel = event.target.closest('[data-ai-seat]');
