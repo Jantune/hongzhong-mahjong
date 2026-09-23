@@ -14,9 +14,13 @@ import io
 import json
 from pathlib import Path
 
+import sys
+
 import edge_tts
-import numpy as np
 import soundfile as sf
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from audio_proc import process_samples  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "assets" / "audio" / "voice"
@@ -38,10 +42,8 @@ TILES = [f"{n}万" for n in NUM] + [f"{n}条" for n in NUM] + [f"{n}筒" for n i
 CALLS = {
     "chi": "吃！",
     "pong": "碰！",
+    # 牌桌上只喊「杠」和「赖子杠」，明杠、蓄杠、暗杠、皮杠都用 kong
     "kong": "杠！",
-    "concealedKong": "暗杠！",
-    "addedKong": "蓄杠！",
-    "skinKong": "皮杠！",
     "jokerKong": "赖子杠！",
     "win": "胡了！",
     "selfDraw": "自摸！",
@@ -75,28 +77,9 @@ def jobs():
 
 
 def process(mp3_bytes: bytes):
-    """裁掉首尾静音、20ms 淡出、按 RMS 拉到同一响度并限峰。返回 (samples, sr)。"""
+    """解码 edge-tts 的 mp3，交给公共后处理。返回 (samples, sr)。"""
     data, sr = sf.read(io.BytesIO(mp3_bytes), dtype="float32")
-    if data.ndim > 1:
-        data = data.mean(axis=1)
-    env = np.abs(data)
-    # 起点用 -30 dB 门限找；终点门限放到约 -42 dB 并多留 150ms。
-    # 之前终点也用 -30 dB，两字词第二个字的渐弱尾巴被切掉一截，听起来发轻
-    idx = np.where(env > max(env.max() * 0.03, 1e-4))[0]
-    tail = np.where(env > max(env.max() * 0.008, 1e-5))[0]
-    if idx.size:
-        a = max(idx[0] - int(0.012 * sr), 0)   # 起音前留 12ms
-        b = min(tail[-1] + int(0.15 * sr), len(data))
-        data = data[a:b]
-    fade = min(int(0.05 * sr), len(data))
-    if fade:
-        data[-fade:] *= np.linspace(1, 0, fade, dtype=np.float32)
-    rms = float(np.sqrt(np.mean(data ** 2))) or 1e-6
-    data = data * (0.12 / rms)                   # 统一响度，约 -18 dBFS RMS
-    peak = float(np.abs(data).max())
-    if peak > 0.89:                              # 峰值天花板 -1 dBFS
-        data = data * (0.89 / peak)
-    return data.astype(np.float32), sr
+    return process_samples(data, sr), sr
 
 
 async def one(sem, seat, cid, text, rate, pitch, force, manifest):

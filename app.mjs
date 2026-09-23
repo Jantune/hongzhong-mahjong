@@ -751,7 +751,8 @@ let audioLogCount = 0;
 
 function callVoiceId(entry) {
   if (entry.type === 'chi' || entry.type === 'pong') return entry.type;
-  if (entry.type === 'kong') return ({ exposed: 'kong', added: 'addedKong', concealed: 'concealedKong', skinKong: 'skinKong', jokerKong: 'jokerKong' })[entry.kind] || 'kong';
+  // 牌桌上只喊「杠」和「赖子杠」：明杠、蓄杠、暗杠、皮杠一律喊「杠」
+  if (entry.type === 'kong') return entry.kind === 'jokerKong' ? 'jokerKong' : 'kong';
   return null;
 }
 function winVoiceId(entry) {
