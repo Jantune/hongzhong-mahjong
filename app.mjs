@@ -546,6 +546,13 @@ function renderActions(state, actions) {
     const details = action.kind === 'chi' && chiOptions.length > 1 ? `<small>第 ${chiNo} 组</small>` : '';
     buttons.push(`<button class="${cls}" data-action="game-action" data-action-index="${actionIndex}" data-kind="${action.kind}" data-tile-id="${action.tile ?? ''}" data-meld-index="${action.meldIndex ?? ''}" aria-label="${actionLabel(action, state)}">${actionLabel(action, state)}${details}</button>`);
   }
+  // 一局结束后在牌桌上直接给出「下一局」：关掉结算回看牌桌之后，不必再绕回结算弹窗
+  if (state.phase === 'done' && state.result) {
+    const over = matchOver(state);
+    const label = over ? '本场结束 · 查看排名' : state.result.type === 'draw' ? '下一局（庄家连庄）' : '下一局';
+    buttons.push(`<button class="primary" data-action="next-round">${label}</button>`);
+    buttons.push('<button class="secondary" data-action="open-result">查看本局结算</button>');
+  }
   if (!buttons.length) {
     const note = state.phase === 'done' ? '本局已结束，下一局见。' : autoplay ? '已托管，随时可切回自己操作' : discard.length ? '点选手牌，再确认打出' : '等待其他玩家行牌';
     actionRoot.innerHTML = `<span class="action-note">${note}</span>`;
@@ -1199,6 +1206,12 @@ function onClick(event) {
   const target = event.target.closest('[data-action]');
   if (!target) return;
   const kind = target.dataset.action;
+  if (kind === 'next-round') { next(); return; }   // next() 在本场已结束时会改为弹出排名
+  if (kind === 'open-result') {
+    if (matchOver(game)) showRanking();
+    else if (!$('result-dialog').open) $('result-dialog').showModal();
+    return;
+  }
   if (kind === 'select-tile') {
     const id = Number(target.dataset.tileId);
     const state = visibleState(game, 0);
