@@ -197,14 +197,14 @@ $$\text{付款} = \min(\text{封顶},\ W_{\text{胡家}} \times M_{\text{输家}
 |---|---|---|
 | 落牌、洗牌声 | T-STUDIO「[Free Sound Mahjong Sound Pack](https://t-studio-tst.itch.io/free-sound-mahjong-sound-pack)」 | 可商用，署名「みんなの創作支援サイトＴスタ」 |
 | 牌室环境声 | Freesound [#347018](https://freesound.org/people/rasfrecci_w_donna/sounds/347018/) "mah_jong_parlor_outside" by rasfrecci_w_donna | CC0 |
-| 人声 · 南家、西家与旁白 | 微软神经语音（edge-tts）：南家晓晓（普通话），西家晓北（东北话），旁白云夏 | 自用没有问题；公开分发前需自行确认授权 |
-| 人声 · 东家、北家 | 本地 CosyVoice 3（Fun-CosyVoice3-0.5B） | Apache-2.0 |
+| 人声 · 南家、北家、西家与旁白 | 微软神经语音（edge-tts）：南家晓晓（普通话），北家云夏（普通话），西家晓北（东北话），旁白云夏 | 自用没有问题；公开分发前需自行确认授权 |
+| 人声 · 东家 | 本地 CosyVoice 3（Fun-CosyVoice3-0.5B），晓伊音色 · 四川话 | Apache-2.0 |
 
 | 座位 | 音色 | 口音 | 生成脚本 |
 |---|---|---|---|
 | 南家（你） | 晓晓 | 普通话 | `tools/gen_voices.py`（edge-tts） |
 | 东家 | 晓伊 | 四川话 | `tools/gen_voices_cosy.py`（CosyVoice 3） |
-| 北家 | 云夏 | 天津话 | 同上 |
+| 北家 | 云夏 | 普通话 | `tools/gen_voices.py`（edge-tts） |
 | 西家 | 晓北 | 东北话 | `tools/gen_voices.py`（edge-tts，微软自带的东北话嗓音） |
 
 - 词条统一在 `tools/voice_spec.py`；两个生成脚本写 `manifest.json` 时只更新各自负责的座位。

@@ -28,6 +28,7 @@ OUT = ROOT / "assets" / "audio" / "voice"
 # 座位 0 南（你）；narrator 只读系统播报
 SEAT_VOICES = {
     "s0": "zh-CN-XiaoxiaoNeural",          # 南家：晓晓，普通话
+    "s2": "zh-CN-YunxiaNeural",            # 北家：云夏，普通话
     "s3": "zh-CN-liaoning-XiaobeiNeural",  # 西家：晓北，东北话（微软自带的方言嗓音）
     "narrator": "zh-CN-YunxiaNeural",      # 旁白：云夏，普通话
 }
