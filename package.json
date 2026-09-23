@@ -1,0 +1,1 @@
+{"name":"hongzhong-mahjong","private":true,"type":"module","scripts":{"test":"node --test","start":"node server.mjs","build":"node build.mjs"}}
