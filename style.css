@@ -211,6 +211,88 @@ dialog{color:var(--ink);border:1px solid #dce0d1;background:var(--surface);borde
 .win-deltas .down{color:#a8453a}
 .win-skip{margin-top:16px;font-size:10px;color:#9aa79e;letter-spacing:1px}
 @keyframes winpop{from{transform:scale(.6) rotate(-8deg);opacity:0}to{transform:none;opacity:1}}
+
+/* ---- 庆祝分档：大胡 / 48 点以上（tier-big），金顶（tier-gold） ---- */
+.win-card{position:relative;overflow:hidden}
+.win-eyebrow{font-size:11px;letter-spacing:4px;color:#9a7a2e;font-weight:700;margin-bottom:6px}
+.win-eyebrow:empty{display:none}
+.win-total{font-family:Georgia,"Times New Roman",serif;font-size:46px;font-weight:700;line-height:1;margin-top:10px;
+  font-variant-numeric:tabular-nums;color:#2f7a52;letter-spacing:1px}
+.win-rays{display:none}
+.tier-big .win-card,.tier-gold .win-card{padding:30px 44px;min-width:min(420px,88vw)}
+.tier-big .win-card{border:2px solid #e2c77c;box-shadow:0 0 0 6px #f6ecd0,0 26px 70px #0d211a66}
+.tier-big .win-kind{font-size:52px;color:#b8431f}
+.tier-big.is-me .win-kind{color:#b8891f}
+.tier-big .win-tile .tile,.tier-gold .win-tile .tile{--tile-w:62px;--tile-h:87px}
+.win-labels b{display:inline-block;margin:3px 4px;padding:4px 11px;border-radius:999px;font-weight:700;font-size:13px;
+  letter-spacing:2px;background:#fbf3dc;color:#8a5a14;border:1px solid #e8d08e}
+.tier-big .win-labels,.tier-gold .win-labels{margin-top:14px}
+.tier-big .win-kind,.tier-gold .win-kind{animation:kindpulse 1.6s ease-in-out .35s 2}
+@keyframes kindpulse{50%{transform:scale(1.08)}}
+
+.tier-gold.is-in{background:radial-gradient(ellipse at center,#3a2c0acc,#120d02e6)}
+.tier-gold .win-card{background:linear-gradient(160deg,#fffaf0 0%,#fbecc2 45%,#f1d38a 100%);border:2px solid #d9ae4a;
+  box-shadow:0 0 0 7px #f7e2a6,0 0 60px #f5c95a99,0 30px 80px #000a}
+.tier-gold .win-rays{display:block;position:absolute;inset:-60%;z-index:0;pointer-events:none;opacity:.42;
+  background:repeating-conic-gradient(from 0deg,#fff6d6 0deg 9deg,transparent 9deg 22deg);animation:rays 14s linear infinite}
+.tier-gold .win-card>*:not(.win-rays){position:relative;z-index:1}
+@keyframes rays{to{transform:rotate(360deg)}}
+.tier-gold .win-kind{font-size:62px;letter-spacing:14px;color:transparent;
+  background:linear-gradient(100deg,#8a5a0a 0%,#d4a12a 30%,#fff3b8 50%,#d4a12a 70%,#8a5a0a 100%);background-size:220% 100%;
+  -webkit-background-clip:text;background-clip:text;animation:shine 2.4s linear infinite,kindpulse 1.6s ease-in-out .35s 2}
+@keyframes shine{to{background-position:-220% 0}}
+.tier-gold .win-eyebrow{color:#7a5410}
+.tier-gold .win-total{color:#8a5a0a;font-size:56px;text-shadow:0 2px 0 #fff3c4}
+.tier-gold .win-who,.tier-gold .win-skip{color:#5b4412}
+.win-deltas em{display:block;font-style:normal;font-size:10px;color:#9a6b12;font-weight:700}
+.tier-gold .win-deltas span{display:inline-flex;flex-direction:column;align-items:center}
+
+/* 彩带：JS 放入若干 <i>，纯 CSS 下落 */
+.confetti{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0}
+.win-banner .confetti{position:fixed}
+.confetti i{position:absolute;top:-24px;width:9px;height:12px;border-radius:2px;opacity:.95;
+  animation-name:confetti;animation-timing-function:cubic-bezier(.25,.6,.4,1);animation-fill-mode:forwards}
+.confetti i.is-strip{width:5px;height:18px}
+@keyframes confetti{to{transform:translate(var(--drift),108vh) rotate(var(--spin));opacity:.9}}
+.win-banner .win-card{z-index:1}
+
+/* 本场排名 */
+.match-dialog{border:0;padding:0;border-radius:18px;background:var(--surface);width:min(460px,92vw);
+  box-shadow:0 30px 80px #0d211a66;overflow:hidden}
+.match-dialog::backdrop{background:#16241fcc;backdrop-filter:blur(3px)}
+.match-card{position:relative;z-index:1;padding:26px 26px 22px}
+.match-card h2{font-family:SimSun,"Songti SC",serif;font-size:28px;letter-spacing:3px;margin:8px 0 4px}
+.match-sub{font-size:12px;color:var(--muted);margin:0 0 16px}
+.match-rows{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:8px}
+.match-rows li{display:grid;grid-template-columns:40px 1fr auto;align-items:center;gap:10px;padding:11px 14px;
+  border:1px solid var(--line);border-radius:12px;background:#fffef9}
+.rank-no{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:15px;
+  background:#eceadf;color:#6c7b70}
+.rank-1 .rank-no{background:linear-gradient(145deg,#f7de8a,#d4a12a);color:#5b3d05;box-shadow:0 2px 8px #d4a12a66}
+.rank-2 .rank-no{background:linear-gradient(145deg,#eef0f2,#b8bec5);color:#3d464f}
+.rank-3 .rank-no{background:linear-gradient(145deg,#f0d2b4,#b9793f);color:#4a2a0d}
+.rank-1{border-color:#e2c77c!important;background:#fffaf0!important}
+.rank-who{font-weight:700;font-size:14px}
+.rank-who small,.rank-score small{display:block;font-weight:400;font-size:11px;color:var(--muted)}
+.rank-score{text-align:right;font-family:Georgia,serif;font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+.match-rows .is-me{outline:2px solid var(--green);outline-offset:-2px}
+.match-rows .is-busted .rank-score{color:#a8453a}
+.match-rows .is-busted .rank-who small{color:#a8453a}
+.match-dialog .dlg-actions{margin-top:18px}
+.match-dialog .dlg-actions button{min-height:44px}
+@media(prefers-reduced-motion:reduce){.tier-gold .win-rays,.tier-gold .win-kind,.tier-big .win-kind{animation:none}}
+@media(max-width:520px){
+  .tier-big .win-card,.tier-gold .win-card{padding:24px 18px;min-width:0;margin:0 12px}
+  .tier-big .win-kind{font-size:40px}
+  .tier-gold .win-kind{font-size:46px;letter-spacing:9px}
+  .win-total{font-size:38px}.tier-gold .win-total{font-size:44px}
+  .win-labels b{font-size:11px;padding:3px 9px}
+  .match-card{padding:22px 16px 18px}.match-card h2{font-size:23px}
+  /* 工具栏按钮多了以后一行放不下，文字会被挤成竖排：允许折行，文字不换行 */
+  .toolbar{flex-wrap:wrap;row-gap:6px;column-gap:14px;justify-content:flex-start}
+  .toolbar .switch-control,.toolbar .quiet-button,.toolbar .control{white-space:nowrap;flex-shrink:0}
+  #ai-summary{display:none}
+}
 @media(max-width:520px){
   .win-card{padding:22px 24px;margin:0 16px}
   .win-kind{font-size:34px;letter-spacing:6px}

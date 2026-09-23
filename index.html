@@ -43,14 +43,24 @@
 </div>
 <footer class="app-footer"><span>红中赖子杠 · 无花牌 · 逆时针行牌</span><span>点选出牌 <kbd>Enter</kbd> 确认 · <kbd>Esc</kbd> 取消</span></footer>
 </main>
-<div id="win-banner" class="win-banner" hidden aria-live="assertive" role="status"><div class="win-card">
+<div id="win-banner" class="win-banner" hidden aria-live="assertive" role="status"><div id="win-confetti" class="confetti" aria-hidden="true"></div><div class="win-card">
+  <div class="win-rays" aria-hidden="true"></div>
+  <div id="win-eyebrow" class="win-eyebrow"></div>
   <div id="win-kind" class="win-kind"></div>
+  <div id="win-total" class="win-total" hidden></div>
   <div id="win-who" class="win-who"></div>
   <div id="win-tile" class="win-tile"></div>
   <div id="win-labels" class="win-labels"></div>
   <div id="win-deltas" class="win-deltas"></div>
   <div class="win-skip">点一下看结算</div>
 </div></div>
+<dialog id="match-dialog" class="match-dialog" aria-label="本场排名"><div id="match-confetti" class="confetti" aria-hidden="true"></div><div class="match-card">
+  <span class="eyebrow">每人 300 点起 · 任一家跌破 0 分即结束</span>
+  <h2 id="match-title">本场结束</h2>
+  <p id="match-sub" class="match-sub"></p>
+  <ol id="match-rows" class="match-rows"></ol>
+  <div class="dlg-actions"><button id="match-result" class="quiet-button" type="button">查看本局结算</button><button id="match-again" class="primary" type="button">再来一场</button></div>
+</div></dialog>
 <dialog id="result-dialog" class="result-dialog" aria-label="本局结算"><button id="closeResult" class="dialog-close" aria-label="关闭结算">×</button><section id="result" class="result" hidden></section><div class="result-actions"><button id="next" class="next" hidden disabled>下一局</button><button id="backToTable" class="quiet-button">查看牌桌</button></div></dialog>
 <dialog id="drawer" class="rules-drawer" aria-label="规则说明"><div class="drawer-card"><button id="closeRules" class="dialog-close" aria-label="关闭规则">×</button><span class="eyebrow">七皮四赖 · 本桌规则</span><h2>落子之前</h2>
 <p class="drawer-lead">136 张牌，四人逆时针行牌。庄家 14 张、闲家 13 张，发牌后翻出指示牌。留 14 张王牌不可摸（含那张指示牌），可摸牌 69 张；杠后从王牌补牌，牌墙尾部回补一张进王牌，所以每开一个杠可摸的牌就少一张，牌墙摸完即荒庄。</p>
@@ -59,7 +69,7 @@
 <h3>倍数连乘，逐家结算</h3><p>七对 ×4；豪华七对以实际四张相同牌为准，基础 ×8，替代普通七对。每个大胡 ×8，可以叠加。无赖或赖全部还原为本身时为硬胡 ×2。普通杠、皮杠每个 ×2，赖杠每个 ×4；输家开口额外 ×2。杠上开花算大胡，自身 ×4，且触发它的那个杠照常计番——普通杠或皮杠合起来 ×8，赖杠合起来 ×16。</p>
 <p>每家独立判断是否达到 4，不足则不付。屁胡点炮仅点炮者付，七对和大胡三家付；自摸逐家算。只有胡家自身倍数达到封顶，未开口的付款者才在顶外另付半顶。</p>
 <h3>吃碰杠与特殊牌型</h3><p>仅下家可吃，胡优先于碰杠，碰杠优先于吃。一炮单响，从庄家按逆时针选胡家。只有蓄杠可被抢；暗杠、皮赖杠不算开口，皮赖杠不占组。杠后从王牌补牌，牌墙尾部回补一张进王牌。海底捞按正常或补摸后余墙不超过 4 张判定。庄家胡或荒庄连庄。</p>
-<p class="drawer-foot">单机陪练 · 分数保存在当前页面，刷新后重置。音频来源：T-STUDIO、Freesound #347018（CC0）、微软神经语音与 CosyVoice 3。</p></div></dialog>
+<p class="drawer-foot">单机陪练 · 每人 300 点起，任一家跌破 0 分本场结束，排名弹出；分数保存在当前页面，刷新后重置。音频来源：T-STUDIO、Freesound #347018（CC0）、微软神经语音与 CosyVoice 3。</p></div></dialog>
 <dialog id="llm-dialog" class="rules-drawer llm-dialog" aria-label="模型设置"><div class="drawer-card llm-card"><button id="llm-close" class="dialog-close" aria-label="关闭模型设置">×</button><span class="eyebrow">大模型陪练 · 本机设置</span><h2>模型设置</h2><label class="llm-field"><span>服务商</span><select id="llm-provider"></select></label><label class="llm-field"><span>模型</span><input id="llm-model" type="text" autocomplete="off"></label><label class="llm-field"><span>API 密钥</span><span class="llm-key-row"><input id="llm-key" type="password" autocomplete="off"><a id="llm-key-url" target="_blank" rel="noreferrer">获取密钥 ↗</a></span></label><label class="llm-field"><span>接口地址 <em>可选</em></span><input id="llm-base" type="text" inputmode="url" placeholder="留空使用官方默认地址" autocomplete="off" spellcheck="false"><small class="llm-hint">写不写 /v1 都行：只填域名会自动补版本路径，带路径的照原样用，把完整接口地址整条粘进来也能识别。</small><small id="llm-preview" class="llm-preview"></small></label><label id="llm-proxy-row" class="llm-proxy" hidden><input id="llm-proxy" type="checkbox"><span>走本地转发</span></label><div class="llm-test-row"><button id="llm-test" class="quiet-button" type="button">测试连接</button><p id="llm-test-result" class="llm-test-result" role="status" aria-live="polite" hidden></p></div><p class="llm-note">密钥只存在本机浏览器，不会写进 HTML 文件。测试连接用的是上面正在填的值，不用先保存。</p><div class="dlg-actions"><button id="llm-clear-key" class="quiet-button" type="button">清除密钥</button><button id="llm-done" class="primary" type="button">保存</button></div></div></dialog>
 <dialog id="ai-dialog" class="rules-drawer" aria-label="对手策略"><div class="drawer-card ai-card">
   <button id="ai-close" class="dialog-close" aria-label="关闭">×</button>

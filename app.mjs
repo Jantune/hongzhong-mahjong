@@ -726,7 +726,7 @@ function renderResult(state) {
   resultRoot.hidden = false;
   resultRoot.innerHTML = resultMarkup(state);
   nextRoot.hidden = false;
-  nextRoot.textContent = state.result.type === 'draw' ? '下一局（庄家连庄）' : '下一局';
+  nextRoot.textContent = matchOver(state) ? '本场结束 · 查看排名' : state.result.type === 'draw' ? '下一局（庄家连庄）' : '下一局';
   $('review-result').hidden = false;
   const key = `${state.rules.seed}:${state.round}`;
   if (shownResult !== key) {
@@ -826,14 +826,76 @@ function renderCallFlash(state) {
 
 // ---- 和牌横幅 --------------------------------------------------------
 let winTimer = null;
+let countTimer = null;
+
+// 一场比赛：每人 300 点起，任意一家低于 0 本场结束
+const START_POINTS = 300;
+const matchOver = (state) => !!state?.result && state.scores.some((s) => s < 0);
+
+/**
+ * 庆祝分档：
+ *   gold —— 金顶：胡家自身倍数达到封顶，未开口的付款者另付半顶
+ *   big  —— 大胡，或本局总收入 ≥ 48 点
+ *   normal
+ */
+const BIG_TOTAL = 48;
+function winTier(state) {
+  const r = state.result;
+  if (!r || r.type !== 'win') return 'normal';
+  const cap = Number(state.rules?.cap) || 50;
+  if ((r.score?.W || 0) >= cap) return 'gold';
+  if (r.score?.big || (r.score?.total || 0) >= BIG_TOTAL) return 'big';
+  return 'normal';
+}
 
 function closeWinBanner(openResult = true) {
   const banner = $('win-banner');
   if (!banner || banner.hidden) return;
   if (winTimer !== null) { window.clearTimeout(winTimer); winTimer = null; }
+  if (countTimer !== null) { window.clearInterval(countTimer); countTimer = null; }
   banner.hidden = true;
   banner.classList.remove('is-in');
-  if (openResult && game?.result && !$('result-dialog').open) $('result-dialog').showModal();
+  $('win-confetti').innerHTML = '';
+  if (!openResult || !game?.result) return;
+  // 有人跌破 0：直接弹本场排名（排名里可以再看本局结算）
+  if (matchOver(game)) { showRanking(); return; }
+  if (!$('result-dialog').open) $('result-dialog').showModal();
+}
+
+/** 彩带：纯 CSS 动画的小方块，数量随档位增加；减少动画偏好下不放 */
+function launchConfetti(tier) {
+  const box = $('win-confetti');
+  box.innerHTML = '';
+  if (window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) return;
+  const n = tier === 'gold' ? 90 : 54;
+  const colors = tier === 'gold'
+    ? ['#f5d77a', '#e8b93c', '#fff4c2', '#c8902a', '#fbe7a1', '#d9a441']
+    : ['#e0574a', '#f2c14e', '#3f9b6e', '#4d8fd6', '#f6f1e3', '#c85a8f'];
+  const frag = document.createDocumentFragment();
+  for (let i = 0; i < n; i += 1) {
+    const s = document.createElement('i');
+    s.style.left = `${Math.random() * 100}%`;
+    s.style.background = colors[i % colors.length];
+    s.style.animationDelay = `${Math.random() * 0.9}s`;
+    s.style.animationDuration = `${2.2 + Math.random() * 1.8}s`;
+    s.style.setProperty('--drift', `${(Math.random() - 0.5) * 160}px`);
+    s.style.setProperty('--spin', `${(Math.random() < 0.5 ? -1 : 1) * (360 + Math.random() * 540)}deg`);
+    if (Math.random() < 0.35) s.classList.add('is-strip');
+    frag.appendChild(s);
+  }
+  box.appendChild(frag);
+}
+
+/** 总分从 0 滚到终值 */
+function countUp(el, to, ms = 900) {
+  if (countTimer !== null) window.clearInterval(countTimer);
+  const t0 = performance.now();
+  el.textContent = '+0';
+  countTimer = window.setInterval(() => {
+    const k = Math.min(1, (performance.now() - t0) / ms);
+    el.textContent = `+${Math.round(to * (1 - (1 - k) ** 3))}`;
+    if (k >= 1) { window.clearInterval(countTimer); countTimer = null; }
+  }, 30);
 }
 
 function announceWin(state) {
@@ -846,8 +908,17 @@ function announceWin(state) {
   const isMe = !draw && r.winner === 0;
   const winner = draw ? '' : seatName(r.winner);
 
-  banner.className = `win-banner ${draw ? 'is-draw' : selfDraw ? 'is-selfdraw' : 'is-ron'}${isMe ? ' is-me' : ''}`;
-  $('win-kind').textContent = draw ? '荒 庄' : selfDraw ? '自 摸' : '点 炮';
+  const tier = draw ? 'normal' : winTier(state);
+  banner.className = `win-banner ${draw ? 'is-draw' : selfDraw ? 'is-selfdraw' : 'is-ron'}${isMe ? ' is-me' : ''} tier-${tier}`;
+  $('win-kind').textContent = tier === 'gold' ? '金 顶' : draw ? '荒 庄' : selfDraw ? '自 摸' : '点 炮';
+  // 高档位：顶部小标签 + 总分滚动
+  const cap = Number(state.rules?.cap) || 50;
+  $('win-eyebrow').textContent = tier === 'gold'
+    ? `胡家倍数 ×${r.score.W} · 达到 ${cap} 封顶`
+    : tier === 'big' ? (r.score?.big ? '大 胡' : `${BIG_TOTAL} 点以上`) : '';
+  const totalEl = $('win-total');
+  totalEl.hidden = tier === 'normal';
+  if (tier !== 'normal') countUp(totalEl, r.score?.total || 0, tier === 'gold' ? 1400 : 1000);
   $('win-who').textContent = draw
     ? '牌墙摸完，无人和牌'
     : selfDraw
@@ -860,16 +931,71 @@ function announceWin(state) {
     : null;
   $('win-tile').innerHTML = (winTile !== null && winTile !== undefined)
     ? tileMarkup(state, winTile) : '';
-  $('win-labels').textContent = draw ? '' : (r.score?.labels || []).join(' · ');
+  const labels = draw ? [] : (r.score?.labels || []);
+  $('win-labels').innerHTML = tier === 'normal'
+    ? labels.join(' · ')
+    : labels.map((l) => `<b>${l}</b>`).join('');
+  // 金顶时标出谁多付了顶外半顶
   $('win-deltas').innerHTML = draw ? '' : [0, 1, 2, 3]
-    .map((p) => `<span class="${r.deltas[p] > 0 ? 'up' : r.deltas[p] < 0 ? 'down' : ''}">${seatName(p)} ${formatDelta(r.deltas[p])}</span>`)
+    .map((p) => {
+      const extra = tier === 'gold' && p !== r.winner && (r.score?.payments?.[p] || 0) > cap
+        ? `<em>含顶外 +${r.score.payments[p] - cap}</em>` : '';
+      return `<span class="${r.deltas[p] > 0 ? 'up' : r.deltas[p] < 0 ? 'down' : ''}">${seatName(p)} ${formatDelta(r.deltas[p])}${extra}</span>`;
+    })
     .join('');
 
   banner.hidden = false;
+  if (tier !== 'normal') launchConfetti(tier);
   // 先撤 hidden 再加动画类，否则过渡不会触发
   requestAnimationFrame(() => banner.classList.add('is-in'));
   const quick = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
-  winTimer = window.setTimeout(() => closeWinBanner(true), quick ? 900 : 2200);
+  const stay = { normal: 2200, big: 3400, gold: 4600 }[tier];
+  winTimer = window.setTimeout(() => closeWinBanner(true), quick ? 900 : stay);
+}
+
+// ---- 本场排名 --------------------------------------------------------
+function showRanking() {
+  const dlg = $('match-dialog');
+  if (!dlg || !game) return;
+  const scores = game.scores;
+  const order = [0, 1, 2, 3].sort((a, b) => scores[b] - scores[a] || a - b);
+  const busted = [0, 1, 2, 3].filter((p) => scores[p] < 0).map((p) => seatName(p));
+  let rank = 0;
+  const rows = order.map((p, i) => {
+    if (i === 0 || scores[p] !== scores[order[i - 1]]) rank = i + 1;   // 同分同名次
+    const delta = scores[p] - START_POINTS;
+    return `<li class="rank-${rank}${p === 0 ? ' is-me' : ''}${scores[p] < 0 ? ' is-busted' : ''}">
+      <span class="rank-no">${rank}</span>
+      <span class="rank-who">${seatName(p)}${p === 0 ? '（你）' : ''}${scores[p] < 0 ? '<small>跌破 0 分</small>' : ''}</span>
+      <span class="rank-score">${scores[p]}<small>${formatDelta(delta)}</small></span>
+    </li>`;
+  }).join('');
+  $('match-sub').textContent = `共 ${game.round} 局 · ${busted.join('、')} 跌破 0 分，本场结束`;
+  $('match-rows').innerHTML = rows;
+  const me = order.indexOf(0);
+  const myRank = [...$('match-rows').children][me]?.querySelector('.rank-no')?.textContent;
+  $('match-title').textContent = myRank === '1' ? '你是本场第一！' : `本场结束 · 你排第 ${myRank}`;
+  if ($('result-dialog').open) $('result-dialog').close();
+  dlg.showModal();
+  if (myRank === '1') launchRankConfetti();
+}
+
+function launchRankConfetti() {
+  const box = $('match-confetti');
+  if (!box) return;
+  box.innerHTML = '';
+  if (window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) return;
+  const colors = ['#f5d77a', '#e0574a', '#3f9b6e', '#4d8fd6', '#fff4c2'];
+  for (let i = 0; i < 60; i += 1) {
+    const s = document.createElement('i');
+    s.style.left = `${Math.random() * 100}%`;
+    s.style.background = colors[i % colors.length];
+    s.style.animationDelay = `${Math.random() * 0.8}s`;
+    s.style.animationDuration = `${2.4 + Math.random() * 1.6}s`;
+    s.style.setProperty('--drift', `${(Math.random() - 0.5) * 140}px`);
+    s.style.setProperty('--spin', `${(Math.random() < 0.5 ? -1 : 1) * (360 + Math.random() * 540)}deg`);
+    box.appendChild(s);
+  }
 }
 
 function logTileName(entry, state) {
@@ -1019,7 +1145,7 @@ function restart() {
   lastError = '';
   renderedLogCount = -1;
   resetCoach();
-  game = createGame({ cap: Number(capRoot?.value || 50), seed: seedFromUrl ?? Date.now(), dealer: 0, scores: [0, 0, 0, 0], round: 1 });
+  game = createGame({ cap: Number(capRoot?.value || 50), seed: seedFromUrl ?? Date.now(), dealer: 0, scores: [START_POINTS, START_POINTS, START_POINTS, START_POINTS], round: 1 });
   audioLogCount = game.log?.length || 0;
   audio.playShuffle();
   render();
@@ -1030,6 +1156,8 @@ function next() {
   resetCallFlash();
   closeWinBanner(false);
   if (!game?.result) return;
+  // 有人跌破 0 分：本场已结束，不再开下一局
+  if (matchOver(game)) { showRanking(); return; }
   generation += 1;
   clearTimer();
   selectedTile = null;
@@ -1180,7 +1308,9 @@ rulesRoot?.addEventListener('click', () => drawerRoot.showModal());
 closeRulesRoot?.addEventListener('click', () => drawerRoot.close());
 $('closeResult').addEventListener('click', () => $('result-dialog').close());
 $('backToTable').addEventListener('click', () => $('result-dialog').close());
-$('review-result').addEventListener('click', () => $('result-dialog').showModal());
+$('review-result').addEventListener('click', () => (matchOver(game) ? showRanking() : $('result-dialog').showModal()));
+$('match-again')?.addEventListener('click', () => { $('match-dialog').close(); restart(); });
+$('match-result')?.addEventListener('click', () => { $('match-dialog').close(); $('result-dialog').showModal(); });
 for (const dialog of [drawerRoot, $('result-dialog'), llmDialog, soundDialog]) {
   if (!dialog) continue;
   dialog.addEventListener('click', event => {
@@ -1190,7 +1320,7 @@ for (const dialog of [drawerRoot, $('result-dialog'), llmDialog, soundDialog]) {
   });
 }
 document.addEventListener('keydown', event => {
-  if (drawerRoot.open || $('result-dialog').open || $('ai-dialog')?.open || llmDialog.open || soundDialog?.open || event.target.closest('input,textarea,select')) return;
+  if (drawerRoot.open || $('result-dialog').open || $('ai-dialog')?.open || llmDialog.open || soundDialog?.open || $('match-dialog')?.open || event.target.closest('input,textarea,select')) return;
   if (event.key === 'Escape') { selectedTile = null; render(); }
   if (event.key === 'Enter' && selectedTile !== null && !event.target.closest('input,select,button:not(.tile-button)')) {
     event.preventDefault();
@@ -1210,3 +1340,12 @@ renderAiSeats();
 llmToggle.checked = store.get(LLM_KEYS.enabled, '0') === '1';
 if (llmToggle.checked) enableLlm();
 restart();
+
+// 调试入口：只在地址带 ?debug 时暴露，用来直接预览庆祝横幅与本场排名，正常游戏不受影响
+if (new URLSearchParams(location.search).has('debug')) {
+  window.__hzDebug = {
+    get game() { return game; },
+    set game(g) { game = g; },
+    announceWin, showRanking, winTier, matchOver,
+  };
+}
