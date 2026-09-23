@@ -7,8 +7,10 @@ import { writeFileSync, readFileSync } from 'node:fs';
 import { runDuplicate, runBust, mergeResults, report } from './arena.mjs';
 import { REAL_STRATEGIES, PROFILES, makePolicy } from './strategies_real.mjs';
 import { STRATEGIES as LEGACY } from './simulate_tournament.mjs';
+import { aiChoose } from './game.mjs';
 
-export const ALL_STRATEGIES = { ...LEGACY, ...REAL_STRATEGIES };
+// Baseline = 引擎自带的 aiChoose，「对 3 家引擎基线」的对照组
+export const ALL_STRATEGIES = { ...LEGACY, ...REAL_STRATEGIES, Baseline: aiChoose };
 
 /** --profiles '{"G_d0":{"base":"Guarded","defense":0}}' 临时注册调参变体。 */
 function registerProfiles(json) {

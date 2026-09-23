@@ -76,6 +76,12 @@ const DEFAULTS = {
   // 实测最优区间 0.1~0.3，0.5 已明显变差。
   ukWeight: 0.3,
   shapeW: 0,                 // 引擎 shapeScore 作为结构性平局裁决的权重
+  // 进张是否用与出牌排序相同的（带七对/碰碰胡折价的）向听来数。
+  // false 为旧口径：排序用折价向听、进张用未折价向听，两把尺子不一致，
+  // 会出现"拆对子比打孤张进张多"的误判。见 handeval.mjs 的 ukeire 注释。
+  // 复式实测（每小局，修后-修前，块配对 95% CI）：强手同桌 稳健 +1.00 [+0.47, +1.59]、
+  // 精算 +1.14 [+0.51, +1.89]；对 3 家基线 稳健 +1.38 [+0.48, +2.34]、精算 +1.11 [+0.10, +2.26]。
+  ukConsistent: true,
 };
 
 export const PROFILES = {
@@ -231,6 +237,7 @@ function pickDiscard(view, player, discards, counts, jokers, needGroups, cur, P,
     let uk = { kinds: 0, tiles: 0 };
     if (!folding && r.s <= minS + 1) {
       const uopt = { pongW: P.pongW, chiW: P.chiW };
+      if (P.ukConsistent) uopt.shanten = (c, j, g) => bestShanten(c, j, g, opt);
       if (r.isJoker) uk = ukeire(counts, jokers - 1, needGroups, vis, uopt);
       else { counts[r.t] -= 1; uk = ukeire(counts, jokers, needGroups, vis, uopt); counts[r.t] += 1; }
     }

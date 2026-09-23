@@ -197,13 +197,15 @@ export function advise(view, player = 0) {
     seen.add(t);
     const isJoker = t === view.joker;
     let s, uk;
+    // 进张用与向听同一把尺子（带七对/碰碰胡折价）来数，否则会把"拆对子"排到"打孤张"前面
+    const uopt = { pongW: 0.8, chiW: 0.2, shanten: (c, j, g) => bestShanten(c, j, g, hasChi) };
     if (isJoker) {
       s = bestShanten(counts, jokers - 1, needGroups, hasChi);
-      uk = ukeire(counts, jokers - 1, needGroups, vis, { pongW: 0.8, chiW: 0.2 });
+      uk = ukeire(counts, jokers - 1, needGroups, vis, uopt);
     } else {
       counts[t] -= 1;
       s = bestShanten(counts, jokers, needGroups, hasChi);
-      uk = ukeire(counts, jokers, needGroups, vis, { pongW: 0.8, chiW: 0.2 });
+      uk = ukeire(counts, jokers, needGroups, vis, uopt);
       counts[t] += 1;
     }
     const own = hand.filter((id) => tileType(id) === t).length;

@@ -259,27 +259,31 @@ export function handShape(view, player, hand) {
  * 向听数再准也会打出比手工启发式更慢的牌——这正是第一版每小局输 3~4 分的原因。
  *
  * pongW / chiW 是"一个对家的弃牌相当于多少次自摸机会"的折算系数。
+ *
+ * opt.shanten：可选，(counts, jokers, needGroups) => 向听。调用方排序出牌用的向听
+ * 带了路线折价（七对 +1.5、碰碰胡 +1.0）时，进张必须用同一个函数来数，否则两边尺子不一样：
+ * 打掉孤张后未折价的七对恰好领先，进张就只数凑对子的牌，屁胡路线的进张全被漏掉，
+ * 结果"拆对子"反而显得比"打孤张"进张多。不传则保持原来的未折价口径。
  */
+const rawShanten = (counts, jokers, needGroups) => Math.min(
+  shantenStandard(counts, jokers, needGroups, true),
+  shantenQidui(counts, jokers, needGroups),
+  shantenPeng(counts, jokers, needGroups),
+);
+
 export function ukeire(counts, jokers, needGroups, vis, opt = {}) {
   const pongW = opt.pongW ?? 0;
   const chiW = opt.chiW ?? 0;
-  const base = Math.min(
-    shantenStandard(counts, jokers, needGroups, true),
-    shantenQidui(counts, jokers, needGroups),
-    shantenPeng(counts, jokers, needGroups),
-  );
-  if (base === 0) return { kinds: 0, tiles: 0 };
+  const shantenOf = opt.shanten || rawShanten;
+  if (rawShanten(counts, jokers, needGroups) === 0) return { kinds: 0, tiles: 0 };
+  const base = shantenOf(counts, jokers, needGroups);
   let kinds = 0, tiles = 0;
   for (let t = 0; t < 34; t += 1) {
     if (counts[t] >= 4) continue;
     counts[t] += 1;
-    const s = Math.min(
-      shantenStandard(counts, jokers, needGroups, true),
-      shantenQidui(counts, jokers, needGroups),
-      shantenPeng(counts, jokers, needGroups),
-    );
+    const s = shantenOf(counts, jokers, needGroups);
     counts[t] -= 1;
-    if (s >= base) continue;
+    if (s >= base - 1e-9) continue;
     kinds += 1;
     const live = Math.max(0, 4 - (vis ? vis[t] : 0) - counts[t]);
     // 自摸 1 个来源；手里已有对子则三家弃牌都能碰；顺子只有上家能吃
