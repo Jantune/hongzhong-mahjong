@@ -828,9 +828,14 @@ function renderCallFlash(state) {
 let winTimer = null;
 let countTimer = null;
 
-// 一场比赛：每人 300 点起，任意一家低于 0 本场结束
+// 锦标赛模式（默认关）：每人 300 点起，任意一家低于 0 本场结束并排名。
+// 关闭时和以前一样，分数从 0 起、一直打下去。开关只在开新的一场时生效，
+// tournamentActive 记录的是"当前这一场"按哪种赛制开的。
 const START_POINTS = 300;
-const matchOver = (state) => !!state?.result && state.scores.some((s) => s < 0);
+const TOURNAMENT_KEY = 'hz.tournament';
+let tournamentActive = false;
+const tournamentWanted = () => store.get(TOURNAMENT_KEY, '0') === '1';
+const matchOver = (state) => tournamentActive && !!state?.result && state.scores.some((s) => s < 0);
 
 /**
  * 庆祝分档：
@@ -1147,7 +1152,10 @@ function restart() {
   lastError = '';
   renderedLogCount = -1;
   resetCoach();
-  game = createGame({ cap: Number(capRoot?.value || 50), seed: seedFromUrl ?? Date.now(), dealer: 0, scores: [START_POINTS, START_POINTS, START_POINTS, START_POINTS], round: 1 });
+  tournamentActive = tournamentWanted();
+  const start = tournamentActive ? START_POINTS : 0;
+  game = createGame({ cap: Number(capRoot?.value || 50), seed: seedFromUrl ?? Date.now(), dealer: 0, scores: [start, start, start, start], round: 1 });
+  $('tournament-badge')?.toggleAttribute('hidden', !tournamentActive);
   audioLogCount = game.log?.length || 0;
   audio.playShuffle();
   render();
@@ -1206,6 +1214,36 @@ function onClick(event) {
 $('win-banner')?.addEventListener('click', () => closeWinBanner(true));
 document.addEventListener('click', onClick);
 $('restart')?.addEventListener('click', restart);
+
+// ---- 锦标赛开关 ----
+const tourToggle = $('tournament-toggle');
+let tourHintTimer = null;
+function showTourHint(html, stay = 6000) {
+  const el = $('tour-hint');
+  if (!el) return;
+  el.innerHTML = html;
+  el.hidden = false;
+  if (tourHintTimer) window.clearTimeout(tourHintTimer);
+  tourHintTimer = window.setTimeout(() => { el.hidden = true; }, stay);
+}
+if (tourToggle) {
+  tourToggle.checked = tournamentWanted();
+  tourToggle.addEventListener('change', () => {
+    store.set(TOURNAMENT_KEY, tourToggle.checked ? '1' : '0');
+    const explain = tourToggle.checked
+      ? '<b>锦标赛模式</b>：每人 300 点起，任一家跌破 0 分本场结束，弹出排名。'
+      : '<b>锦标赛模式已关</b>：分数从 0 起，一直打下去，不排名。';
+    // 这一场刚开、还没人出过牌就直接换赛制；打到一半则不打断，下一场生效
+    const fresh = game && game.round === 1 && !game.result && game.discards.every((d) => d.length === 0);
+    if (fresh) { restart(); showTourHint(`${explain} 已按新赛制开局。`); return; }
+    showTourHint(`${explain} 从下一场开始生效。<button type="button" data-tour-now>现在就开新的一场</button>`, 9000);
+  });
+}
+$('tour-hint')?.addEventListener('click', (event) => {
+  if (!event.target.closest('[data-tour-now]')) return;
+  $('tour-hint').hidden = true;
+  restart();
+});
 nextRoot?.addEventListener('click', next);
 capRoot?.addEventListener('change', restart);
 adviceToggle?.addEventListener('change', () => render());

@@ -334,3 +334,8 @@ dialog{color:var(--ink);border:1px solid #dce0d1;background:var(--surface);borde
   .call-flash.at-0,.call-flash.at-2{margin-left:-26px}
 }
 @media(prefers-reduced-motion:reduce){.call-flash{transition:opacity .15s ease}}
+/* 锦标赛开关的提示条与侧栏标记 */
+.tour-hint{margin:-6px 0 12px;padding:9px 14px;border-radius:10px;background:#fbf3dc;border:1px solid #e8d08e;color:#6b4a0e;
+  font-size:12px;line-height:1.6;display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
+.tour-hint button{min-height:36px;padding:6px 12px;border-radius:7px;background:var(--green);color:#fff;font-size:12px}
+.tournament-badge{font-style:normal;font-size:9px;color:#8a5a14;background:#fbf3dc;border:1px solid #e8d08e;border-radius:4px;padding:1px 5px}
