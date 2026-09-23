@@ -42,6 +42,18 @@ test('settle: cap and half-cap top-out are per payer', () => {
     { payments: [0, 50, 50, 32], total: 132 });
 });
 
+test('settle: gold top-out needs a three-payer win; 屁胡点炮 never pays the half-cap', () => {
+  // 屁胡点炮：只有点炮者付，胡家倍数到了封顶也只付封顶，没有顶外半顶
+  assert.deepEqual(settle({ W: 64, winner: 0, from: 1, players: makePlayers(), cap: 50 }),
+    { payments: [0, 50, 0, 0], total: 50 });
+  // 大胡点炮：三家付，达到封顶即金顶，未开口者另付半顶
+  assert.deepEqual(settle({ W: 64, big: true, winner: 0, from: 1, players: makePlayers({ 2: { open: true } }), cap: 50 }),
+    { payments: [0, 75, 50, 75], total: 200 });
+  // 七对点炮也是三家付
+  assert.deepEqual(settle({ W: 64, sevenPairs: true, winner: 0, from: 1, players: makePlayers(), cap: 50 }),
+    { payments: [0, 75, 75, 75], total: 225 });
+});
+
 test('settle: payer open, ordinary kong and joker kong multiply independently', () => {
   assert.deepEqual(settle({ W: 2, winner: 0, from: 1,
     players: makePlayers({ 1: { open: true, kongCount: 1, jokerKongCount: 1 } }), cap: 50 }),
@@ -86,7 +98,8 @@ test('two-joker屁胡 is allowed once the winner itself reaches cap', () => {
   assert.deepEqual(r.labels, ['屁胡']);
   assert.equal(r.W, 16);
   assert.equal(r.hard, false);
-  assert.deepEqual(r.payments, [0, 15, 0, 0]);
+  // 屁胡点炮只有点炮者一家付，胡家倍数到了封顶也不是金顶：只付封顶 10，没有顶外半顶
+  assert.deepEqual(r.payments, [0, 10, 0, 0]);
 });
 
 test('hard restoration: joker used as its own tile is hard胡', () => {

@@ -214,11 +214,14 @@ function settle({ W, big = false, sevenPairs = false, winner = 0, selfDraw = fal
   const payers = payAll
     ? [0, 1, 2, 3].filter(p => p !== winner)
     : (Number.isInteger(from) && from >= 0 && from < 4 && from !== winner ? [from] : []);
+  // 金顶：只有三家付款的局面（自摸、七对、大胡）且胡家自身倍数达到封顶才算，
+  // 此时未开口的付款者在顶外另付半顶。点炮屁胡只有点炮者一家付，倍数再高也不是金顶。
+  const goldTop = payAll && W >= C;
   for (const p of payers) {
     const pf = playerFactor(players[p]);
     const raw = W * pf.multiplier;
     if (raw < 4) continue;
-    payments[p] = Math.min(C, raw) + (W >= C && !pf.open ? C / 2 : 0);
+    payments[p] = Math.min(C, raw) + (goldTop && !pf.open ? C / 2 : 0);
   }
   return { payments, total: payments.reduce((a, b) => a + b, 0) };
 }

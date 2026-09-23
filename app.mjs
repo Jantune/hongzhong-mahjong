@@ -834,7 +834,8 @@ const matchOver = (state) => !!state?.result && state.scores.some((s) => s < 0);
 
 /**
  * 庆祝分档：
- *   gold —— 金顶：胡家自身倍数达到封顶，未开口的付款者另付半顶
+ *   gold —— 金顶：三家付款的局面（自摸、七对、大胡）且胡家自身倍数达到封顶，
+ *           未开口的付款者另付半顶。与 scoring.mjs 的 settle 同一条件。
  *   big  —— 大胡，或本局总收入 ≥ 48 点
  *   normal
  */
@@ -843,7 +844,8 @@ function winTier(state) {
   const r = state.result;
   if (!r || r.type !== 'win') return 'normal';
   const cap = Number(state.rules?.cap) || 50;
-  if ((r.score?.W || 0) >= cap) return 'gold';
+  const threePay = r.from === null || r.from === r.winner || !!r.score?.big || !!r.score?.sevenPairs;
+  if (threePay && (r.score?.W || 0) >= cap) return 'gold';
   if (r.score?.big || (r.score?.total || 0) >= BIG_TOTAL) return 'big';
   return 'normal';
 }
