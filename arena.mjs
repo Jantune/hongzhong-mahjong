@@ -31,6 +31,10 @@ function emptyStat(name) {
     wins: 0, selfDraws: 0, dealIns: 0,
     wSum: 0, gainSum: 0, paidSum: 0, payEvents: 0,
     openRounds: 0, liabilitySum: 0, kongSum: 0,
+    gangKai: 0,               // 杠上开花次数
+    gangKaiGain: 0,           // 杠上开花收到的总分
+    ronGain: 0, ronWins: 0,   // 点炮胡的次数与总分
+    tsumoGain: 0,             // 普通自摸（不含杠上开花）的总分
   };
 }
 
@@ -76,6 +80,10 @@ function record(stats, seatNames, state, before) {
   w.gainSum += res.score?.total || 0;
   if (res.from === null) w.selfDraws += 1;
   else if (res.from !== res.winner) stats[seatNames[res.from]].dealIns += 1;
+  const gain = res.score?.total || 0;
+  if ((res.score?.labels || []).includes('杠上开花')) { w.gangKai += 1; w.gangKaiGain += gain; }
+  else if (res.from === null) w.tsumoGain += gain;
+  else { w.ronWins += 1; w.ronGain += gain; }
   for (let p = 0; p < 4; p += 1) {
     if (p === res.winner) continue;
     const pay = res.score?.payments?.[p] || 0;
@@ -87,7 +95,7 @@ function record(stats, seatNames, state, before) {
  * 复式单局模式：每个 block 是一副固定的牌，24 种座位排列各打一次。
  * lineup 里可以重复出现同一个策略名。
  */
-export function runDuplicate({ lineup, strategies, blocks = 100, seedStart = 10000, cap = 32,
+export function runDuplicate({ lineup, strategies, blocks = 100, seedStart = 10000, cap = 50,
   shard = 0, shardCount = 1 } = {}) {
   const names = [...new Set(lineup)];
   const stats = {}; for (const n of names) stats[n] = emptyStat(n);
@@ -118,9 +126,9 @@ export function runDuplicate({ lineup, strategies, blocks = 100, seedStart = 100
 }
 
 /**
- * 飞局模式：与 README 口径对齐（cap 32 / <= -300 结束），但座位排列跑满 24 种。
+ * 飞局模式：<= -300 结束（默认封顶 50，与游戏一致），座位排列跑满 24 种。
  */
-export function runBust({ lineup, strategies, blocks = 20, seedStart = 20000, cap = 32,
+export function runBust({ lineup, strategies, blocks = 20, seedStart = 20000, cap = 50,
   bust = -300, maxRounds = 80, shard = 0, shardCount = 1 } = {}) {
   const names = [...new Set(lineup)];
   const stats = {}; for (const n of names) stats[n] = emptyStat(n);

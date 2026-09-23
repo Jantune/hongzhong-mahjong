@@ -757,9 +757,8 @@ function callVoiceId(entry) {
 }
 function winVoiceId(entry) {
   const labels = Array.isArray(entry.labels) ? entry.labels.map(String) : [];
+  // 胡牌只喊三句：杠上开花喊「杠开」；其余自摸（含海底捞）喊「自摸」；胡别人的牌（含抢杠）喊「胡了」
   if (labels.includes('杠上开花')) return 'gangKai';
-  if (labels.includes('海底捞')) return 'haidi';
-  if (labels.some(label => label.includes('抢杠'))) return 'robKong';
   return entry.from === null || entry.from === undefined || entry.from === entry.player ? 'selfDraw' : 'win';
 }
 function playAudioLogEntry(entry) {

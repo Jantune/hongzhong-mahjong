@@ -218,7 +218,10 @@ export function advise(view, player = 0) {
   for (const r of rows) {
     r.score = -r.shanten * 200 + (r.uk.tiles * 6 + r.uk.kinds * 2) * 0.3 - (r.isJoker ? 150 : 0);
   }
-  rows.sort((a, b) => b.score - a.score);
+  // 同分时先打"留着最没用"的牌，而不是按手牌顺序随便挑：字牌、幺九最先走，
+  // 2/5/8 是屁胡将眼候选、最后才动。面板自己的提醒里就写着"2/5/8 单张别随手打掉"，
+  // 不加这一条，同分时它反而会推荐打二万。
+  rows.sort((a, b) => (Math.abs(b.score - a.score) > 1e-6 ? b.score - a.score : keepValue(a.type) - keepValue(b.type)));
   const top = rows[0];
   top.recommended = true;
 
@@ -236,6 +239,14 @@ export function advise(view, player = 0) {
     warnings,
     best: top.action,
   };
+}
+
+/** 留着这张牌的潜在价值，只用于同分裁决。字牌 0；幺九 1；二八 2；三到七 3；2/5/8 另加 2。 */
+function keepValue(t) {
+  if (t >= 27) return 0;
+  const rank = (t % 9) + 1;
+  const base = rank === 1 || rank === 9 ? 1 : rank === 2 || rank === 8 ? 2 : 3;
+  return base + (EYE_258.includes(t) ? 2 : 0);
 }
 
 function kindLabel(kind) {

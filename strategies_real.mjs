@@ -82,6 +82,12 @@ const DEFAULTS = {
   // 复式实测（每小局，修后-修前，块配对 95% CI）：强手同桌 稳健 +1.00 [+0.47, +1.59]、
   // 精算 +1.14 [+0.51, +1.89]；对 3 家基线 稳健 +1.38 [+0.48, +2.34]、精算 +1.11 [+0.10, +2.26]。
   ukConsistent: true,
+  // 出牌同分时先打"留着最没用"的牌（见 keepValue），false 则按手牌顺序取第一个
+  tieKeep: false,
+  // 最后一张皮子留到听牌才杠，搏杠上开花（见 makePolicy 里的特殊杠分支）
+  holdLastSkin: false,
+  // 配合 holdLastSkin：向听数大于此值时照常马上杠（Infinity = 一直留到听牌）
+  holdSkinMaxXt: Infinity,
 };
 
 export const PROFILES = {
@@ -180,8 +186,26 @@ export function makePolicy(profile) {
     }
 
     // ---- 自己回合：特殊杠 ----------------------------------------------
+    // 皮子胡牌前必须杠掉，什么时候杠可以自选。默认"立刻杠"。
+    // holdLastSkin：皮子多于一张时照杠，最后一张留到其余 13 张听牌才杠——
+    // 补牌那一下就是一次杠上开花的机会；没听牌就一直不杠，也少翻一次自己的赔付倍率。
+    // 代价是留着皮的时候不能胡（不能接炮，自摸也要先杠）。
     const skin = actions.find(a => a.kind === 'skinKong');
-    if (skin) return skin;                    // 皮子胡牌前必须杠掉；这里选择"立刻杠"（晚杠也合规，但期间不能胡）
+    if (skin) {
+      if (!P.holdLastSkin) return skin;
+      const skins = hand.filter(id => { const t = tileType(id); return t === 31 || t === view.indicatorType; }).length;
+      if (skins >= 2) return skin;
+      const live = Math.min(
+        shantenStandard(counts, jokers, needGroups, true),
+        shantenQidui(counts, jokers, needGroups),
+        shantenPeng(counts, jokers, needGroups),
+      );
+      // counts 已排除皮子，是 13 张活牌；未折价向听 1 即听牌
+      if (live <= 1) return skin;
+      // 折中版：离听牌还远（向听 > holdSkinMaxXt）就照常马上杠，只在快听牌时才留皮等杠开，
+      // 缩短"留着皮不能接炮"的窗口
+      if (Number.isFinite(P.holdSkinMaxXt) && live - 1 > P.holdSkinMaxXt) return skin;
+    }
 
     const jokerKongs = actions.filter(a => a.kind === 'jokerKong');
     if (jokerKongs.length >= P.jokerKongMin) return jokerKongs[0];
@@ -207,6 +231,15 @@ export function makePolicy(profile) {
 // 这正是原 safeDiscardEvaluation 做不到的：它把 waits*10000 摆在最前面，
 // 所谓"防守"只能在同向听的候选之间做文章，永远不会为了保命退一步。
 const SHANTEN_WEIGHT = 200;
+
+const EYE_TYPES = new Set([1, 4, 7, 10, 13, 16, 19, 22, 25]);
+/** 留着这张牌的潜在价值，只用于同分裁决。字牌 0；幺九 1；二八 2；三到七 3；2/5/8 另加 2。 */
+function keepValue(t) {
+  if (t >= 27) return 0;
+  const rank = (t % 9) + 1;
+  const base = rank === 1 || rank === 9 ? 1 : rank === 2 || rank === 8 ? 2 : 3;
+  return base + (EYE_TYPES.has(t) ? 2 : 0);
+}
 
 function pickDiscard(view, player, discards, counts, jokers, needGroups, cur, P, opt) {
   const vis = visibleCounts(view);
@@ -252,7 +285,9 @@ function pickDiscard(view, player, discards, counts, jokers, needGroups, cur, P,
     }
     const score = -r.s * SHANTEN_WEIGHT + (uk.tiles * 6 + uk.kinds * 2) * P.ukWeight
       + shape * P.shapeW - danger * defWeight - jokerPenalty;
-    if (score > bestScore) { bestScore = score; best = r.a; }
+    // 同分裁决（tieKeep）：先打留着最没用的牌（字牌、幺九先走，2/5/8 最后），否则按手牌顺序
+    const tie = P.tieKeep && best && Math.abs(score - bestScore) <= 1e-6 && keepValue(r.t) < keepValue(tileType(best.tile));
+    if (score > bestScore + 1e-6 || tie || (!P.tieKeep && score > bestScore)) { bestScore = Math.max(score, bestScore); best = r.a; }
   }
   return best || discards[0];
 }

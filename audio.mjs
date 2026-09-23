@@ -18,7 +18,7 @@ const sfxSources = new Set();
 const buffers = new Map();
 const settings = { ...DEFAULTS };
 // 胡牌类喊得更响：播放时额外 +4 dB，总输出前有限幅器兜住峰值
-const WIN_IDS = new Set(['win', 'selfDraw', 'gangKai', 'haidi', 'robKong']);
+const WIN_IDS = new Set(['win', 'selfDraw', 'gangKai']);
 const WIN_BOOST = 10 ** (4 / 20);
 // 人声预计念完的时刻（performance.now 毫秒）。app 排下一手时据此等一等，
 // 免得上一家的牌名还没念完，下一家就出牌把它打断

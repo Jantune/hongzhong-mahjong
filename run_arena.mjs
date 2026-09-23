@@ -50,7 +50,7 @@ function main() {
     strategies: ALL_STRATEGIES,
     blocks: Number(a.blocks || 120),
     seedStart: Number(a.seedStart || 10000),
-    cap: Number(a.cap || 32),
+    cap: Number(a.cap || 50),   // 与游戏默认封顶一致
     shard: Number(a.shard || 0),
     shardCount: Number(a.of || 1),
   };
