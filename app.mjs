@@ -574,12 +574,13 @@ function hideAdvice() {
 function adviceTilesLine(r) {
   const fmt = (list) => {
     const total = list.reduce((s, x) => s + x.live, 0);
-    const items = list.map((x) => `<span class="adv-tile${x.live === 0 ? ' is-dead' : ''}${x.ok === false ? ' is-noway' : ''}" title="${x.ok === false ? '牌型听了，但打点不够 4，胡不了' : `场上还剩 ${x.live} 张`}">${x.joker ? '赖子' : ''}${TILE_NAMES[x.t]}<b>${x.live}</b></span>`).join('');
+    const items = list.map((x) => `<span class="adv-tile${x.live === 0 ? ' is-dead' : ''}${x.ok === false ? ' is-noway' : ''}${x.selfOnly ? ' is-self' : ''}" title="${x.ok === false ? '牌型听了，但打点不够 4，胡不了' : x.selfOnly ? `只能自摸，别人打出来胡不了 · 场上还剩 ${x.live} 张` : `场上还剩 ${x.live} 张`}">${x.joker ? '赖子' : ''}${TILE_NAMES[x.t]}<b>${x.live}</b></span>`).join('');
     return `${items}<em>共 ${total} 张</em>`;
   };
   if (r.waits) {
     if (!r.waits.length) return '<span class="adv-label">暂时胡不了</span>';
-    const label = r.waits.some((w) => w.ok) ? '听' : '听（打点不够 4）';
+    const ok = r.waits.filter((w) => w.ok);
+    const label = !ok.length ? '听（打点不够 4）' : ok.every((w) => w.selfOnly) ? '听（只能自摸）' : '听';
     return `<span class="adv-label">${label}</span>${fmt(r.waits)}`;
   }
   if (r.next?.length) return `<span class="adv-label">进听</span>${fmt(r.next)}`;
@@ -629,7 +630,7 @@ function renderAdvice(state) {
     : '';
   const kong = adv.kongNote ? `<p class="advice-kong">${adv.kongNote}</p>` : '';
   const foot = adv.mode === 'discard'
-    ? '<p class="advice-foot">推荐只看进张速度，不避炮——想保守就挑风险低的那行。</p>'
+    ? `<p class="advice-foot">${adv.tied > 1 ? `前 ${adv.tied} 行完全一样好（向听、进张都相同），排第一只是先打孤张和幺九；` : ''}推荐只看进张速度，不避炮——想保守就挑风险低的那行。</p>`
     : '';
 
   adviceRoot.hidden = false;
@@ -1451,7 +1452,7 @@ restart();
 if (new URLSearchParams(location.search).has('debug')) {
   window.__hzDebug = {
     get game() { return game; },
-    set game(g) { game = g; },
+    set game(g) { game = g; render(); },
     announceWin, showRanking, winTier, matchOver,
   };
 }

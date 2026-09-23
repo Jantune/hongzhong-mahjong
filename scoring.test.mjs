@@ -6,6 +6,9 @@ const makePlayers = (changes = {}) => [0, 1, 2, 3].map(i => ({
   open: false, kongCount: 0, jokerKongCount: 0, ...(changes[i] || {}),
 }));
 
+// 胡家（0 号）已开口。门清屁胡只能自摸，所以屁胡点炮的用例都让胡家先开口。
+const openWinner = (changes = {}) => makePlayers({ 0: { open: true }, ...changes });
+
 const base = {
   melds: [], specialKongs: [], indicator: 8, joker: 33, cap: 50,
   selfDraw: false, from: 1, winner: 0, players: makePlayers(),
@@ -62,18 +65,18 @@ test('settle: payer open, ordinary kong and joker kong multiply independently', 
 
 test('plain hard屁胡 requires a 2/5/8 eye and has hard胡 x2', () => {
   assert.equal(evalHand(pihu), null, 'W=2 against a closed x1 payer does not reach four');
-  const r = evalHand(pihu, { players: makePlayers({ 1: { open: true } }) });
+  const r = evalHand(pihu, { players: openWinner({ 1: { open: true } }) });
   assert.ok(r);
   assert.deepEqual(r.labels, ['屁胡']);
   assert.equal(r.W, 2);
   assert.equal(r.hard, true);
   assert.deepEqual(r.payments, [0, 4, 0, 0]);
-  assert.equal(evalHand(pihuLowEye, { players: makePlayers({ 1: { open: true } }) }), null);
+  assert.equal(evalHand(pihuLowEye, { players: openWinner({ 1: { open: true } }) }), null);
 });
 
 test('one physical joker is a soft屁胡; two are prohibited only for plain屁胡', () => {
   const one = evalHand(pihuOneJoker, {
-    players: makePlayers({ 1: { open: true, kongCount: 1 } }),
+    players: openWinner({ 1: { open: true, kongCount: 1 } }),
   });
   assert.ok(one);
   assert.deepEqual(one.labels, ['屁胡']);
@@ -81,7 +84,7 @@ test('one physical joker is a soft屁胡; two are prohibited only for plain屁�
   assert.equal(one.hard, false);
   assert.deepEqual(one.payments, [0, 4, 0, 0]);
   assert.equal(evalHand(pihuTwoJokers, {
-    players: makePlayers({ 1: { open: true, kongCount: 1, jokerKongCount: 1 } }),
+    players: openWinner({ 1: { open: true, kongCount: 1, jokerKongCount: 1 } }),
   }), null);
 });
 
@@ -92,7 +95,7 @@ test('two-joker屁胡 is allowed once the winner itself reaches cap', () => {
       { kind: 'skin', tile: 8 }, { kind: 'skin', tile: 31 },
       { kind: 'skin', tile: 31 }, { kind: 'skin', tile: 31 },
     ],
-    players: makePlayers(),
+    players: openWinner(),
   });
   assert.ok(r);
   assert.deepEqual(r.labels, ['屁胡']);
@@ -105,7 +108,7 @@ test('two-joker屁胡 is allowed once the winner itself reaches cap', () => {
 test('hard restoration: joker used as its own tile is hard胡', () => {
   const r = evalHand([0, 1, 2, 3, 4, 5, 9, 10, 11, 18, 19, 20, 22, 22], {
     indicator: 8, joker: 0,
-    players: makePlayers({ 1: { open: true } }),
+    players: openWinner({ 1: { open: true } }),
   });
   assert.ok(r);
   assert.equal(r.W, 2);
@@ -140,7 +143,7 @@ test('natural four of a kind is豪华七对 and starts at x8', () => {
 test('each single skin kong is an independent x2, including two red centers', () => {
   const r = evalHand(pihuOneJoker, {
     specialKongs: [{ kind: 'skin', tile: 31 }, { kind: 'skin', tile: 31 }],
-    players: makePlayers({ 1: { open: true } }),
+    players: openWinner({ 1: { open: true } }),
   });
   assert.ok(r);
   assert.equal(r.W, 4);
@@ -151,6 +154,7 @@ test('each single skin kong is an independent x2, including two red centers', ()
 test('a joker kong is x4 and removes that joker from the hard胡 check', () => {
   const r = evalHand(pihu, {
     specialKongs: [{ kind: 'joker', tile: 33 }],
+    players: openWinner(),
   });
   assert.ok(r);
   assert.equal(r.W, 8);
@@ -223,6 +227,7 @@ test('海底捞 is an independent dahu factor', () => {
 test('ordinary concealed kong is a winner x2 factor and does not open the winner', () => {
   const r = evalHand([0, 1, 2, 0, 1, 2, 18, 19, 20, 4, 4], {
     melds: [{ kind: 'kong', tiles: [9, 9, 9, 9], open: false }],
+    selfDraw: true, from: null,
   });
   assert.ok(r);
   assert.deepEqual(r.labels, ['屁胡']);
@@ -239,7 +244,7 @@ test('杠开 is counted only on a self-draw', () => {
   // 杠上开花自身 ×4：屁胡 1 × 硬胡 2 × 杠开 4 = 8
   assert.equal(r.W, 8);
   assert.deepEqual(r.payments, [0, 8, 8, 8]);
-  const point = evalHand(pihu, { gangKai: true, players: makePlayers({ 1: { open: true } }) });
+  const point = evalHand(pihu, { gangKai: true, players: openWinner({ 1: { open: true } }) });
   assert.ok(point);
   assert.equal(point.W, 2);
 });
@@ -270,6 +275,29 @@ test('杠上开花算大胡：自身 ×4，乘上必然存在的那个杠 = ×8�
     ...opts, specialKongs: [{ kind: 'skin', tile: 8 }],
   });
   assert.equal(nonEye, null, '杠上开花按大胡计分，但将牌仍须 2/5/8');
+});
+
+test('门前清屁胡不能捉铳，只能自摸；暗杠、皮杠、赖杠不算开口；七对和大胡不受限', () => {
+  const payerOpen = { 1: { open: true, kongCount: 1 } };
+  // 门清：点炮不能胡，哪怕点炮者打点够 4
+  assert.equal(evalHand(pihu, { players: makePlayers(payerOpen) }), null);
+  // 抢杠也是别人的牌，同样不行
+  assert.equal(evalHand(pihu, { robKong: true, players: makePlayers(payerOpen) }), null);
+  // 手里有暗杠、皮杠、赖杠仍是门清
+  assert.equal(evalHand([0, 1, 2, 0, 1, 2, 18, 19, 20, 4, 4], {
+    melds: [{ kind: 'kong', tiles: [9, 9, 9, 9], open: false }],
+    specialKongs: [{ kind: 'skin', tile: 31 }, { kind: 'joker', tile: 33 }],
+    players: makePlayers(payerOpen),
+  }), null);
+  // 同一手牌自摸可以胡
+  const tsumo = evalHand(pihu, { selfDraw: true, from: null, players: makePlayers({ 1: { open: true }, 2: { open: true }, 3: { open: true } }) });
+  assert.ok(tsumo);
+  assert.deepEqual(tsumo.payments, [0, 4, 4, 4]);
+  // 胡家开口后可以捉铳
+  assert.ok(evalHand(pihu, { players: openWinner(payerOpen) }));
+  // 七对、大胡门清也能捉铳
+  assert.ok(evalHand([0, 0, 1, 1, 9, 9, 10, 10, 18, 18, 19, 19, 27, 27]));
+  assert.ok(evalHand([0, 0, 0, 1, 1, 1, 2, 2, 2, 4, 4, 4, 7, 7]));
 });
 
 test('invalid skin in hand and invalid joker meld are rejected', () => {

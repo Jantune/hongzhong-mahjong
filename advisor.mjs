@@ -228,7 +228,9 @@ export function advise(view, player = 0) {
   // 听牌与 1 向听时列出具体的牌和场上剩余张数：
   //   听牌   —— 真正能胡的牌（走完整的胡牌判定：有皮不能胡、两赖禁屁胡、4 点起胡）
   //   1 向听 —— 摸到就能听牌的牌
-  const shown = rows.slice(0, 3);
+  // 默认列前三行；和第一名同分的牌全部列出（最多 6 行），免得并列最优的牌被截掉
+  const tied = rows.filter((r) => Math.abs(r.score - top.score) < 1e-6).length;
+  const shown = rows.slice(0, Math.min(6, Math.max(3, tied)));
   for (const r of shown) {
     const x = toXiangting(r.shanten);
     if (x === 0) r.waits = waitsAfterDiscard(view, player, r.isJoker ? null : r.tile, r.isJoker ? r.tile : null, vis);
@@ -243,6 +245,9 @@ export function advise(view, player = 0) {
       ? (top.waits.some((w) => w.ok)
         ? `打完听牌：听 ${tileCountText(top.waits.filter((w) => w.ok))}。`
           + (top.waits.some((w) => !w.ok) ? `（${top.waits.filter((w) => !w.ok).map(tileLabel).join('、')}打点不够 4，胡不了）` : '')
+          + (top.waits.filter((w) => w.ok).every((w) => w.selfOnly)
+            ? '门前清屁胡只能自摸，别人打出来胡不了；吃、碰或明杠开口后才能捉铳。'
+            : top.waits.some((w) => w.selfOnly) ? `${top.waits.filter((w) => w.selfOnly).map(tileLabel).join('、')}只能自摸。` : '')
         : top.waits.length
           ? `打完听 ${tileCountText(top.waits)}，但眼下打点不够 4，胡不了：没人开口、也没杠，屁胡每家只付 2。等有人开口或自己开杠才能胡。`
           : '打完听牌，但眼下胡不了（手上有皮要先杠掉）。')
@@ -250,7 +255,8 @@ export function advise(view, player = 0) {
         ? `打完 1 向听，摸到 ${tileCountText(top.next)} 就听牌。`
         : `打完 ${xiangtingText(top.shanten)}，有效牌 ${top.uk.kinds} 种。`,
     kongNote,
-    rows: rows.slice(0, 3),
+    rows: shown,
+    tied,
     minS,
     warnings,
     best: top.action,
@@ -272,6 +278,7 @@ export function tileLabel(x) {
  * 打掉 discardId 之后听哪些牌，以及每种在场上还剩几张。
  * 牌型听牌（fastWaits）与完整胡牌判定（evaluateWin：自摸或任一家点炮）取并集；
  * ok = false 表示牌型听了但眼下胡不了（最常见：没人开口也没杠，硬屁胡每家只付 2 点，够不上 4 点起胡）。
+ * selfOnly = true 表示只能自摸、别人打出来胡不了（最常见：门前清屁胡不能捉铳）。
  * 皮子本身不算听牌。
  */
 function waitsAfterDiscard(view, player, discardId, jokerDiscardId, vis) {
@@ -286,9 +293,11 @@ function waitsAfterDiscard(view, player, discardId, jokerDiscardId, vis) {
     const id = [t * 4, t * 4 + 1, t * 4 + 2, t * 4 + 3].find((x) => !hand.includes(x));
     const probe = { ...view, hands: view.hands.map((h, p) => (p === player ? hand : h)) };
     const selfProbe = { ...probe, hands: probe.hands.map((h, p) => (p === player ? [...hand, id] : h)) };
-    let ok = !!evaluateWin(selfProbe, player, { selfDraw: true });
-    for (let d = 1; !ok && d < 4; d += 1) ok = !!evaluateWin(probe, player, { from: (player + d) % 4, tile: id });
-    if (ok || shape.has(t)) out.push({ t, live: Math.max(0, 4 - vis[t] - own), ok, joker: t === view.joker });
+    const self = !!evaluateWin(selfProbe, player, { selfDraw: true });
+    let ron = false;
+    for (let d = 1; !ron && d < 4; d += 1) ron = !!evaluateWin(probe, player, { from: (player + d) % 4, tile: id });
+    const ok = self || ron;
+    if (ok || shape.has(t)) out.push({ t, live: Math.max(0, 4 - vis[t] - own), ok, selfOnly: self && !ron, joker: t === view.joker });
   }
   return out;
 }

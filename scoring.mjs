@@ -332,6 +332,9 @@ function evaluateHand(input = {}) {
       // The two-joker prohibition belongs only to an otherwise plain屁胡.
       // Seven pairs and every real大胡 may retain any number of jokers.
       if (!big && !mode.sevenPairs && physicalJokers > 1 && W < normaliseCap(cap)) continue;
+      // 门前清屁胡（没吃、没碰、没明杠；暗杠、皮杠、赖杠不算开口）不能捉铳，只能自摸。
+      // 七对、大胡不受此限。
+      if (!big && !mode.sevenPairs && !selfDraw && !players[winner]?.open) continue;
 
       const payment = settle({ W, big, sevenPairs: mode.sevenPairs, winner, selfDraw, from, players, cap });
       // A legal win must have at least one actual payer reaching four.
