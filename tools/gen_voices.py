@@ -27,8 +27,9 @@ OUT = ROOT / "assets" / "audio" / "voice"
 
 # 座位 0 南（你）；narrator 只读系统播报
 SEAT_VOICES = {
-    "s0": "zh-CN-XiaoxiaoNeural",   # 晓晓，普通话
-    "narrator": "zh-CN-YunxiaNeural",  # 云夏，普通话
+    "s0": "zh-CN-XiaoxiaoNeural",          # 南家：晓晓，普通话
+    "s3": "zh-CN-liaoning-XiaobeiNeural",  # 西家：晓北，东北话（微软自带的方言嗓音）
+    "narrator": "zh-CN-YunxiaNeural",      # 旁白：云夏，普通话
 }
 
 # 语速：默认语速下两字词的第二个字发得很轻（"三万"的"万"），放慢后每个字更完整

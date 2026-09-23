@@ -30,11 +30,10 @@ from voice_spec import TILES, CALLS  # noqa: E402
 OUT = ROOT / "assets" / "audio" / "voice"
 REFS = ROOT / "assets" / "audio" / "refs"
 
-# 座位 1 东、2 北、3 西：(参考音色, 方言, 说明)
+# 座位 1 东、2 北：(参考音色, 方言, 说明)。西家的东北话改用微软晓北，由 gen_voices.py 负责
 SEATS = {
     "s1": ("xiaoyi", "四川话", "晓伊音色 · 四川话"),
     "s2": ("yunxia", "天津话", "云夏音色 · 天津话"),
-    "s3": ("xiaoxiao", "东北话", "晓晓音色 · 东北话"),
 }
 
 # 时长合理区间（秒），越界视为念错（多念字、拖长或吞字）
@@ -113,6 +112,6 @@ def main(force, seats):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--force", action="store_true")
-    ap.add_argument("--seats", default="s1,s2,s3")
+    ap.add_argument("--seats", default="s1,s2")
     a = ap.parse_args()
     main(a.force, a.seats.split(","))
