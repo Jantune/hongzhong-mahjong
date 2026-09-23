@@ -168,6 +168,17 @@ dialog{color:var(--ink);border:1px solid #dce0d1;background:var(--surface);borde
   .app-footer{display:none}
 }
 .advice-kong{margin:9px 0 0;font-size:11px;color:var(--muted);padding-top:8px;border-top:1px dashed var(--line)}
+.sound-dialog{width:min(520px,92vw)}
+.sound-card h3{margin-top:22px}
+.sound-toggle{display:grid;grid-template-columns:22px 70px 1fr;align-items:center;gap:8px;min-height:48px;border-bottom:1px solid var(--line);font-size:13px}
+.sound-toggle input{width:20px;height:20px;accent-color:var(--green)}
+.sound-toggle small{font-size:11px;color:var(--muted)}
+.sound-volume{display:grid;grid-template-columns:1fr;gap:8px;padding:17px 0 5px;font-size:12px}
+.sound-volume output{float:right;color:var(--muted)}
+.sound-volume input{width:100%;accent-color:var(--green)}
+.sound-previews{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.sound-previews button{min-height:44px;background:var(--paper);border:1px solid var(--line)}
+@media(max-width:520px){.sound-previews{grid-template-columns:1fr}.sound-previews button{min-height:44px}}
 
 /* ===== 和牌横幅 =====
    之前一和牌就直接弹结算，整局的高潮一闪而过。先亮一张横幅停 2.2 秒，

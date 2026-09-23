@@ -13,6 +13,7 @@ import { PROVIDERS, DEFAULT_PROVIDER, providerOf, ask, probeProxy, testConnectio
 import { buildSystem, buildQuestion, DEFAULT_QUESTION, plainText } from './coach.mjs';
 
 import { tileMarkup, TILE_NAMES } from './tiles.mjs';
+import { audio } from './audio.mjs';
 
 // 电脑打法。每个座位单独设，存在 localStorage 的 hz.ai.seat.<座位号> 里。
 //
@@ -68,9 +69,11 @@ const askCancel = $('ask-cancel');
 const askStatus = $('ask-status');
 const askOut = $('ask-out');
 const llmDialog = $('llm-dialog');
+const soundDialog = $('sound-dialog');
 let coachHistory = [];
 let askController = null;
 let proxyProviders = null;
+const AUDIO_KEYS = { voice: 'hz.audio.voice', sfx: 'hz.audio.sfx', ambience: 'hz.audio.ambience', volume: 'hz.audio.volume' };
 
 const store = {
   get(k, fallback = '') {
@@ -340,6 +343,15 @@ function schedule(fn, delay = 500) {
 // 桌上什么都不会发生。过只给一个很短的停顿，把预算留给真正有动作的那一步。
 const CALL_KINDS = new Set(['chi', 'pong', 'exposedKong', 'skinKong', 'jokerKong', 'concealedKong', 'addedKong']);
 const PACE = { pass: 90, call: 300, discard: 420 };
+
+// 有人声时，出牌和吃碰杠要等上一段播报念完再动，否则下一家的落牌会把牌名打断。
+// "过"桌上没有动静，不用等；等到真正出声的那一手自然会等。
+function pacedDelay(action) {
+  const ms = thinkDelay(action);
+  if (!action || action.kind === 'pass') return ms;
+  const remaining = audio.voiceRemainingMs();
+  return remaining > 0 ? Math.max(ms, Math.round(remaining) + 150) : ms;
+}
 
 function thinkDelay(action) {
   const speed = Number(speedRoot?.value || 3);
@@ -735,6 +747,40 @@ const CALL_FLASH = {
 };
 let flashedLogCount = 0;
 let flashTimer = null;
+let audioLogCount = 0;
+
+function callVoiceId(entry) {
+  if (entry.type === 'chi' || entry.type === 'pong') return entry.type;
+  if (entry.type === 'kong') return ({ exposed: 'kong', added: 'addedKong', concealed: 'concealedKong', skinKong: 'skinKong', jokerKong: 'jokerKong' })[entry.kind] || 'kong';
+  return null;
+}
+function winVoiceId(entry) {
+  const labels = Array.isArray(entry.labels) ? entry.labels.map(String) : [];
+  if (labels.includes('杠上开花')) return 'gangKai';
+  if (labels.includes('海底捞')) return 'haidi';
+  if (labels.some(label => label.includes('抢杠'))) return 'robKong';
+  return entry.from === null || entry.from === undefined || entry.from === entry.player ? 'selfDraw' : 'win';
+}
+function playAudioLogEntry(entry) {
+  if (!entry) return;
+  if (entry.type === 'discard') {
+    audio.playTile();
+    audio.playVoice(entry.player, `t${Math.floor(entry.tile / 4)}`, 1, 80);
+  } else if (entry.type === 'chi' || entry.type === 'pong' || entry.type === 'kong') {
+    audio.playTile();
+    audio.playVoice(entry.player, callVoiceId(entry), 2);
+  } else if (entry.type === 'win') {
+    audio.playVoice(entry.player, winVoiceId(entry), 2);
+  } else if (entry.type === 'draw') {
+    audio.playVoice(0, 'draw', 2);
+  }
+}
+function renderAudioEvents(state) {
+  const log = state.log || [];
+  if (log.length < audioLogCount) audioLogCount = 0;
+  for (let i = audioLogCount; i < log.length; i += 1) playAudioLogEntry(log[i]);
+  audioLogCount = log.length;
+}
 
 function resetCallFlash() {
   flashedLogCount = 0;
@@ -916,6 +962,7 @@ function render() {
   if (meldRoot) meldRoot.innerHTML = meldMarkup(state, 0);
   renderActions(state, actions);
   renderCallFlash(state);
+  renderAudioEvents(state);
   renderAdvice(state);
   renderResult(state);
   renderLog(state);
@@ -953,14 +1000,14 @@ function continueGame() {
       return;
     }
     const chosen = aiPolicy(p)(game, p);
-    if (chosen) schedule(() => perform(chosen), thinkDelay(chosen));
+    if (chosen) schedule(() => perform(chosen), pacedDelay(chosen));
     return;
   }
   if (state.pending) return;
   if (game.turn === 0 && !autoplay) return;
   const turn = game.turn;
   const chosen = aiPolicy(turn)(game, turn);
-  if (chosen) schedule(() => perform(chosen), thinkDelay(chosen));
+  if (chosen) schedule(() => perform(chosen), pacedDelay(chosen));
 }
 
 function restart() {
@@ -973,6 +1020,8 @@ function restart() {
   renderedLogCount = -1;
   resetCoach();
   game = createGame({ cap: Number(capRoot?.value || 50), seed: seedFromUrl ?? Date.now(), dealer: 0, scores: [0, 0, 0, 0], round: 1 });
+  audioLogCount = game.log?.length || 0;
+  audio.playShuffle();
   render();
   continueGame();
 }
@@ -988,6 +1037,8 @@ function next() {
   renderedLogCount = -1;
   resetCoach();
   game = nextRound(game);
+  audioLogCount = game.log?.length || 0;
+  audio.playShuffle();
   render();
   continueGame();
 }
@@ -1084,6 +1135,29 @@ function renderAiSeats() {
 $('ai-config')?.addEventListener('click', () => { renderAiSeats(); $('ai-dialog').showModal(); });
 $('ai-close')?.addEventListener('click', () => $('ai-dialog').close());
 $('ai-done')?.addEventListener('click', () => $('ai-dialog').close());
+
+function renderSoundSettings() {
+  $('sound-voice').checked = audio.settings.voice;
+  $('sound-sfx').checked = audio.settings.sfx;
+  $('sound-ambience').checked = audio.settings.ambience;
+  $('sound-volume').value = audio.settings.volume;
+  $('sound-volume-value').textContent = `${Math.round(audio.settings.volume * 100)}%`;
+}
+function saveSoundSetting(key, value) {
+  store.set(AUDIO_KEYS[key], String(value));
+  audio.configure({ [key]: key === 'volume' ? Number(value) : !!value });
+}
+$('sound-config')?.addEventListener('click', () => { renderSoundSettings(); soundDialog.showModal(); });
+$('sound-close')?.addEventListener('click', () => soundDialog.close());
+$('sound-voice')?.addEventListener('change', event => saveSoundSetting('voice', event.target.checked));
+$('sound-sfx')?.addEventListener('change', event => saveSoundSetting('sfx', event.target.checked));
+$('sound-ambience')?.addEventListener('change', event => saveSoundSetting('ambience', event.target.checked));
+$('sound-volume')?.addEventListener('input', event => { saveSoundSetting('volume', event.target.value); $('sound-volume-value').textContent = `${Math.round(Number(event.target.value) * 100)}%`; });
+document.querySelectorAll('[data-preview-seat]').forEach(button => button.addEventListener('click', () => {
+  const seat = Number(button.dataset.previewSeat);
+  audio.playVoice(seat, 'pong', 2);
+  window.setTimeout(() => audio.playVoice(seat, 't2', 1), 430);
+}));
 $('ai-seats')?.addEventListener('change', (event) => {
   const sel = event.target.closest('[data-ai-seat]');
   if (!sel) return;
@@ -1105,7 +1179,8 @@ closeRulesRoot?.addEventListener('click', () => drawerRoot.close());
 $('closeResult').addEventListener('click', () => $('result-dialog').close());
 $('backToTable').addEventListener('click', () => $('result-dialog').close());
 $('review-result').addEventListener('click', () => $('result-dialog').showModal());
-for (const dialog of [drawerRoot, $('result-dialog'), llmDialog]) {
+for (const dialog of [drawerRoot, $('result-dialog'), llmDialog, soundDialog]) {
+  if (!dialog) continue;
   dialog.addEventListener('click', event => {
     if (event.target !== dialog) return;
     const rect = dialog.getBoundingClientRect();
@@ -1113,7 +1188,7 @@ for (const dialog of [drawerRoot, $('result-dialog'), llmDialog]) {
   });
 }
 document.addEventListener('keydown', event => {
-  if (drawerRoot.open || $('result-dialog').open || $('ai-dialog')?.open || llmDialog.open || event.target.closest('input,textarea,select')) return;
+  if (drawerRoot.open || $('result-dialog').open || $('ai-dialog')?.open || llmDialog.open || soundDialog?.open || event.target.closest('input,textarea,select')) return;
   if (event.key === 'Escape') { selectedTile = null; render(); }
   if (event.key === 'Enter' && selectedTile !== null && !event.target.closest('input,select,button:not(.tile-button)')) {
     event.preventDefault();

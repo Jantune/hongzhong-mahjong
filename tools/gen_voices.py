@@ -51,15 +51,27 @@ CALLS = {
 }
 NARRATOR = {"draw": "荒庄。"}
 
+# 胡牌类：提高音调、稍放慢，语气更重；播放时 audio.mjs 另外再加 4 dB
+WIN_IDS = {"win", "selfDraw", "gangKai", "haidi", "robKong"}
+
+# 语速：默认语速下两字词的第二个字发得很轻（"三万"的"万"），放慢后每个字更完整
+RATE_TILE = "-12%"
+RATE_CALL = "-5%"
+RATE_WIN = "-8%"
+PITCH_WIN = "+15Hz"
+
 
 def jobs():
     for seat in ("s0", "s1", "s2", "s3"):
         for t, text in enumerate(TILES):
-            yield seat, f"t{t}", text, "+0%"
+            yield seat, f"t{t}", text, RATE_TILE, "+0Hz"
         for cid, text in CALLS.items():
-            yield seat, cid, text, "+8%"
+            if cid in WIN_IDS:
+                yield seat, cid, text, RATE_WIN, PITCH_WIN
+            else:
+                yield seat, cid, text, RATE_CALL, "+0Hz"
     for cid, text in NARRATOR.items():
-        yield "narrator", cid, text, "+0%"
+        yield "narrator", cid, text, "+0%", "+0Hz"
 
 
 def process(mp3_bytes: bytes):
@@ -68,13 +80,15 @@ def process(mp3_bytes: bytes):
     if data.ndim > 1:
         data = data.mean(axis=1)
     env = np.abs(data)
-    thr = max(env.max() * 0.03, 1e-4)          # 约 -30 dB 相对峰值
-    idx = np.where(env > thr)[0]
+    # 起点用 -30 dB 门限找；终点门限放到约 -42 dB 并多留 150ms。
+    # 之前终点也用 -30 dB，两字词第二个字的渐弱尾巴被切掉一截，听起来发轻
+    idx = np.where(env > max(env.max() * 0.03, 1e-4))[0]
+    tail = np.where(env > max(env.max() * 0.008, 1e-5))[0]
     if idx.size:
         a = max(idx[0] - int(0.012 * sr), 0)   # 起音前留 12ms
-        b = min(idx[-1] + int(0.06 * sr), len(data))
+        b = min(tail[-1] + int(0.15 * sr), len(data))
         data = data[a:b]
-    fade = min(int(0.02 * sr), len(data))
+    fade = min(int(0.05 * sr), len(data))
     if fade:
         data[-fade:] *= np.linspace(1, 0, fade, dtype=np.float32)
     rms = float(np.sqrt(np.mean(data ** 2))) or 1e-6
@@ -85,18 +99,26 @@ def process(mp3_bytes: bytes):
     return data.astype(np.float32), sr
 
 
-async def one(sem, seat, cid, text, rate, force, manifest):
+async def one(sem, seat, cid, text, rate, pitch, force, manifest):
     path = OUT / seat / f"{cid}.mp3"
     if path.exists() and not force:
         info = sf.info(str(path))
         manifest[seat][cid] = {"text": text, "ms": round(info.duration * 1000)}
         return
     async with sem:
-        buf = bytearray()
-        comm = edge_tts.Communicate(text, SEAT_VOICES[seat], rate=rate)
-        async for chunk in comm.stream():
-            if chunk["type"] == "audio":
-                buf.extend(chunk["data"])
+        # 在线服务偶尔断连，每条最多试 3 次
+        for attempt in range(3):
+            try:
+                buf = bytearray()
+                comm = edge_tts.Communicate(text, SEAT_VOICES[seat], rate=rate, pitch=pitch)
+                async for chunk in comm.stream():
+                    if chunk["type"] == "audio":
+                        buf.extend(chunk["data"])
+                break
+            except Exception:
+                if attempt == 2:
+                    raise
+                await asyncio.sleep(1.5 * (attempt + 1))
     samples, sr = process(bytes(buf))
     path.parent.mkdir(parents=True, exist_ok=True)
     sf.write(str(path), samples, sr, format="MP3", subtype="MPEG_LAYER_III")
@@ -105,7 +127,7 @@ async def one(sem, seat, cid, text, rate, force, manifest):
 
 async def main(force: bool):
     manifest = {seat: {} for seat in SEAT_VOICES}
-    sem = asyncio.Semaphore(6)
+    sem = asyncio.Semaphore(3)
     await asyncio.gather(*(one(sem, *j, force, manifest) for j in jobs()))
     meta = {"voices": SEAT_VOICES, "clips": manifest}
     (OUT / "manifest.json").write_text(json.dumps(meta, ensure_ascii=False, indent=1), encoding="utf-8")

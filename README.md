@@ -185,7 +185,23 @@ $$\text{付款} = \min(\text{封顶},\ W_{\text{胡家}} \times M_{\text{输家}
 
 「从容」档实测每手最短 1.08 s / 中位 2.14 s / 最长 4.03 s。随机数只决定等多久，动作在计时前已算完，**牌局走向仍只由种子决定**。
 
-### 3.6 手机适配
+### 3.6 声音
+
+工具栏「声音」打开设置：人声、落牌声默认开，环境声默认关，另有总音量和四家嗓音试听。浏览器要求先有一次点击或按键才能出声，所以打开页面不会突然响。
+
+- **人声播报**：打牌报牌名，鸣牌喊「吃 / 碰 / 杠 / 暗杠 / 蓄杠 / 皮杠 / 赖子杠」，和牌喊「胡了 / 自摸 / 杠上开花 / 海底捞 / 抢杠」，荒庄由旁白播报。四家各一种嗓音，并按座位左右摆位，不看屏幕也知道是谁。新的叫牌会打断正在念的牌名，牌名不会打断叫牌。人声开着时，电脑出牌和吃碰杠会等上一段播报念完再动，快局下也不会把牌名吞掉。胡牌类喊声音调更高、语气更重，播放时再加 4 dB，总输出有限幅器防止削顶。
+- **落牌声**：四种真实牌声随机轮换，每次微调音高和音量，避免机械重复；新局播洗牌声。
+- **环境声**：真实牌室录音截出的 40 秒无缝循环，压得很低，只作垫底；切到别的标签页时自动暂停。
+
+| 素材 | 来源 | 授权 |
+|---|---|---|
+| 落牌、洗牌声 | T-STUDIO「[Free Sound Mahjong Sound Pack](https://t-studio-tst.itch.io/free-sound-mahjong-sound-pack)」 | 可商用，署名「みんなの創作支援サイトＴスタ」 |
+| 牌室环境声 | Freesound [#347018](https://freesound.org/people/rasfrecci_w_donna/sounds/347018/) "mah_jong_parlor_outside" by rasfrecci_w_donna | CC0 |
+| 人声 | 微软神经语音（edge-tts）生成：云希 / 晓晓 / 云健 / 晓北（东北话），旁白云扬 | 自用没有问题；公开分发前需自行确认授权 |
+
+重新生成或换嗓音：改 `tools/gen_voices.py` 里的 `SEAT_VOICES`，运行 `python tools/gen_voices.py --force`。素材整理脚本是 `tools/prep_sfx.py`。以后录好武汉话，按同样的文件名放进 `assets/audio/voice/<座位>/` 即可替换。
+
+### 3.7 手机适配
 
 `dvh` 单位、44px 最小点击区、`touch-action: manipulation`、操作栏 sticky、横屏单独断点（`max-height:560px and orientation:landscape`）、`prefers-reduced-motion`。
 
@@ -280,7 +296,10 @@ $$\text{付款} = \min(\text{封顶},\ W_{\text{胡家}} \times M_{\text{输家}
 | `build.mjs` | 把模块内联成单文件 HTML |
 | `arena.mjs` `run_arena.mjs` | 复式对局实验台 |
 | `simulate_tournament.mjs` `run_experiments.mjs` | 旧版实验（已作废，见 4.6） |
-| `audio-lab.html` | 音效试听原型（独立，未接入游戏） |
+| `audio.mjs` | 人声播报、落牌声、环境声（Web Audio） |
+| `assets/audio/` | 语音包、落牌声、环境声素材 |
+| `tools/gen_voices.py` `tools/prep_sfx.py` | 语音包生成、素材整理 |
+| `audio-lab.html` | 早期合成音色试听原型（已弃用） |
 | `game.test.mjs` `scoring.test.mjs` | 测试 |
 
 **引擎接口**：`createGame({cap, seed, dealer, scores, round})`、`nextRound`、`legalActions(state, seat)`、`applyAction(state, action)`、`visibleState(state, seat)`、`aiChoose`、`autoStep`、`validateState`。`applyAction` 返回新状态、不改动入参；`visibleState` 只暴露该座位能看到的信息；发牌只由种子决定。以后做联机时，这几点可以直接沿用。
@@ -294,9 +313,12 @@ $$\text{付款} = \min(\text{封顶},\ W_{\text{胡家}} \times M_{\text{输家}
 构建   node build.mjs → dist/hongzhong-mahjong.html
 ```
 
-**暂缓**
+**分支**
 
-- **音效**：方案已定——全部用 Web Audio 实时合成，背景做成程序化「牌室底噪」而非音乐循环，不增加体积。试听页 `audio-lab.html` 已完成（六种预设、自定义参数、按真实节奏的牌局模拟、响度自动校准）。待选定牌声音色后写 `audio.mjs` 接入。
+- `main`：本文描述的单文件静态版。
+- `pc-agents`：电脑版实验分支，让大模型坐上牌桌对战（`agent_seat.mjs`、`run_agent_trial.mjs`）。首轮实验：DeepSeek-V4-Flash 纯模型打法每小局比引擎基线低 9.5 分，从未胡牌；GLM-5.2 单次决策超过 60 秒，不适合实时。
+
+`audio-lab.html` 是早期的合成音色试听原型，已被真实素材方案取代，保留仅供参考。
 
 **踩坑备忘**
 
