@@ -51,7 +51,6 @@ const tableRoot = $('table') || document.querySelector('.table');
 const resultRoot = $('result');
 const statusRoot = $('status');
 const logRoot = $('log');
-const nextRoot = $('next');
 const speedRoot = $('speed');
 const capRoot = $('cap');
 const rulesRoot = $('rules');
@@ -735,21 +734,18 @@ function resultMarkup(state) {
 }
 
 function renderResult(state) {
-  if (!resultRoot || !nextRoot) return;
-  nextRoot.disabled = !state.result;
+  if (!resultRoot) return;
   if (!state.result) {
     shownResult = null;
     $('result-dialog').close();
     $('review-result').hidden = true;
     resultRoot.hidden = true;
     resultRoot.innerHTML = '';
-    nextRoot.hidden = true;
     return;
   }
   resultRoot.hidden = false;
   resultRoot.innerHTML = resultMarkup(state);
-  nextRoot.hidden = false;
-  nextRoot.textContent = matchOver(state) ? '本场结束 · 查看排名' : state.result.type === 'draw' ? '下一局（庄家连庄）' : '下一局';
+  // 下一局按钮在牌桌上（renderActions），结算弹窗只留右上角的 ×
   $('review-result').hidden = false;
   const key = `${state.rules.seed}:${state.round}`;
   if (shownResult !== key) {
@@ -1271,7 +1267,6 @@ $('tour-hint')?.addEventListener('click', (event) => {
   $('tour-hint').hidden = true;
   restart();
 });
-nextRoot?.addEventListener('click', next);
 capRoot?.addEventListener('change', restart);
 // ---- 建议开关的四位数密码 ----
 // 静态网页防不住懂前端的人（改一行代码就能绕过），这只是"防君子"：
@@ -1419,7 +1414,6 @@ $('ai-seats')?.addEventListener('change', (event) => {
 rulesRoot?.addEventListener('click', () => drawerRoot.showModal());
 closeRulesRoot?.addEventListener('click', () => drawerRoot.close());
 $('closeResult').addEventListener('click', () => $('result-dialog').close());
-$('backToTable').addEventListener('click', () => $('result-dialog').close());
 $('review-result').addEventListener('click', () => (matchOver(game) ? showRanking() : $('result-dialog').showModal()));
 $('match-again')?.addEventListener('click', () => { $('match-dialog').close(); restart(); });
 $('match-result')?.addEventListener('click', () => { $('match-dialog').close(); $('result-dialog').showModal(); });
