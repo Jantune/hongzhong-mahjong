@@ -346,3 +346,12 @@ dialog{color:var(--ink);border:1px solid #dce0d1;background:var(--surface);borde
 .adv-tile.is-dead{opacity:.5;text-decoration:line-through}
 .advice-table small em{font-style:normal;color:var(--muted);margin-left:2px;white-space:nowrap}
 .adv-tile.is-noway{background:#f6e7e3;color:#a8453a;text-decoration:line-through}
+/* 建议开关的密码弹窗 */
+.pin-dialog{width:min(340px,92vw)}
+.pin-card{text-align:center}
+.pin-input{width:100%;margin-top:14px;padding:12px;font-size:28px;letter-spacing:18px;text-align:center;text-indent:18px;
+  border:1px solid #d5dacf;border-radius:10px;background:var(--paper);color:var(--ink);font-variant-numeric:tabular-nums}
+.pin-msg{min-height:18px;margin:10px 0 0!important;font-size:12px!important;color:#a34736!important}
+.pin-card.is-wrong .pin-input{animation:pinshake .35s}
+@keyframes pinshake{25%{transform:translateX(-8px)}50%{transform:translateX(8px)}75%{transform:translateX(-4px)}}
+.pin-card .dlg-actions button{min-height:44px}

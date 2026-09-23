@@ -1273,7 +1273,52 @@ $('tour-hint')?.addEventListener('click', (event) => {
 });
 nextRoot?.addEventListener('click', next);
 capRoot?.addEventListener('change', restart);
-adviceToggle?.addEventListener('change', () => render());
+// ---- 建议开关的四位数密码 ----
+// 静态网页防不住懂前端的人（改一行代码就能绕过），这只是"防君子"：
+// 源码里只存加盐哈希、看不到明文；输对一次后本标签页内记住，刷新或关掉标签页要重输。
+const ADVICE_PIN_HASH = 'c3c82fce';
+const ADVICE_PIN_SALT = 'hz-advice-pin:v1:';
+const ADVICE_UNLOCK_KEY = 'hz.advice.unlocked';
+function fnv1a(text) {
+  let h = 0x811c9dc5;
+  for (const ch of text) { h ^= ch.codePointAt(0); h = Math.imul(h, 0x01000193) >>> 0; }
+  return h.toString(16).padStart(8, '0');
+}
+const adviceUnlocked = () => { try { return sessionStorage.getItem(ADVICE_UNLOCK_KEY) === '1'; } catch { return false; } };
+const pinDialog = $('pin-dialog');
+function openPinDialog() {
+  const input = $('pin-input');
+  input.value = '';
+  $('pin-msg').textContent = '';
+  pinDialog.showModal();
+  input.focus();
+}
+function submitPin() {
+  const input = $('pin-input');
+  const card = pinDialog.querySelector('.pin-card');
+  if (!/^\d{4}$/.test(input.value)) { $('pin-msg').textContent = '请输入 4 位数字'; return; }
+  if (fnv1a(ADVICE_PIN_SALT + input.value) !== ADVICE_PIN_HASH) {
+    $('pin-msg').textContent = '密码不对';
+    input.value = '';
+    card.classList.remove('is-wrong'); void card.offsetWidth; card.classList.add('is-wrong');
+    return;
+  }
+  try { sessionStorage.setItem(ADVICE_UNLOCK_KEY, '1'); } catch { /* 隐私模式下只在本次有效 */ }
+  pinDialog.close();
+  adviceToggle.checked = true;
+  render();
+}
+adviceToggle?.addEventListener('change', () => {
+  if (adviceToggle.checked && !adviceUnlocked()) { adviceToggle.checked = false; openPinDialog(); return; }
+  render();
+});
+$('pin-form')?.addEventListener('submit', (event) => { event.preventDefault(); submitPin(); });
+$('pin-cancel')?.addEventListener('click', () => pinDialog.close());
+// 输满 4 位自动提交
+$('pin-input')?.addEventListener('input', (event) => {
+  event.target.value = event.target.value.replace(/\D/g, '').slice(0, 4);
+  if (event.target.value.length === 4) submitPin();
+});
 llmToggle?.addEventListener('change', async () => {
   store.set(LLM_KEYS.enabled, llmToggle.checked ? '1' : '0');
   await enableLlm();
@@ -1387,7 +1432,7 @@ for (const dialog of [drawerRoot, $('result-dialog'), llmDialog, soundDialog]) {
   });
 }
 document.addEventListener('keydown', event => {
-  if (drawerRoot.open || $('result-dialog').open || $('ai-dialog')?.open || llmDialog.open || soundDialog?.open || $('match-dialog')?.open || event.target.closest('input,textarea,select')) return;
+  if (drawerRoot.open || $('result-dialog').open || $('ai-dialog')?.open || llmDialog.open || soundDialog?.open || $('match-dialog')?.open || $('pin-dialog')?.open || event.target.closest('input,textarea,select')) return;
   if (event.key === 'Escape') { selectedTile = null; render(); }
   if (event.key === 'Enter' && selectedTile !== null && !event.target.closest('input,select,button:not(.tile-button)')) {
     event.preventDefault();

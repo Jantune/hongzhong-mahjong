@@ -56,6 +56,13 @@
   <div id="win-deltas" class="win-deltas"></div>
   <div class="win-skip">点一下看结算</div>
 </div></div>
+<dialog id="pin-dialog" class="rules-drawer pin-dialog" aria-label="输入密码开启建议"><form class="drawer-card pin-card" method="dialog" id="pin-form">
+  <span class="eyebrow">离线建议 · 需要密码</span>
+  <h2>输入四位数密码</h2>
+  <input id="pin-input" class="pin-input" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" aria-label="四位数密码">
+  <p id="pin-msg" class="pin-msg" role="status" aria-live="polite"></p>
+  <div class="dlg-actions"><button id="pin-cancel" class="quiet-button" type="button">取消</button><button id="pin-ok" class="primary" type="submit">确定</button></div>
+</form></dialog>
 <dialog id="match-dialog" class="match-dialog" aria-label="本场排名"><div id="match-confetti" class="confetti" aria-hidden="true"></div><div class="match-card">
   <span class="eyebrow">每人 300 点起 · 任一家跌破 0 分即结束</span>
   <h2 id="match-title">本场结束</h2>
