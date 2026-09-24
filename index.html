@@ -81,12 +81,9 @@
 <dialog id="llm-dialog" class="rules-drawer llm-dialog" aria-label="模型设置"><div class="drawer-card llm-card"><button id="llm-close" class="dialog-close" aria-label="关闭模型设置">×</button><span class="eyebrow">大模型陪练 · 本机设置</span><h2>模型设置</h2><label class="llm-field"><span>服务商</span><select id="llm-provider"></select></label><label class="llm-field"><span>模型</span><input id="llm-model" type="text" autocomplete="off"></label><label class="llm-field"><span>API 密钥</span><span class="llm-key-row"><input id="llm-key" type="password" autocomplete="off"><a id="llm-key-url" target="_blank" rel="noreferrer">获取密钥 ↗</a></span></label><label class="llm-field"><span>接口地址 <em>可选</em></span><input id="llm-base" type="text" inputmode="url" placeholder="留空使用官方默认地址" autocomplete="off" spellcheck="false"><small class="llm-hint">写不写 /v1 都行：只填域名会自动补版本路径，带路径的照原样用，把完整接口地址整条粘进来也能识别。</small><small id="llm-preview" class="llm-preview"></small></label><label id="llm-proxy-row" class="llm-proxy" hidden><input id="llm-proxy" type="checkbox"><span>走本地转发</span></label><div class="llm-test-row"><button id="llm-test" class="quiet-button" type="button">测试连接</button><p id="llm-test-result" class="llm-test-result" role="status" aria-live="polite" hidden></p></div><p class="llm-note">密钥只存在本机浏览器，不会写进 HTML 文件。测试连接用的是上面正在填的值，不用先保存。</p><div class="dlg-actions"><button id="llm-clear-key" class="quiet-button" type="button">清除密钥</button><button id="llm-done" class="primary" type="button">保存</button></div></div></dialog>
 <dialog id="ai-dialog" class="rules-drawer" aria-label="对手策略"><div class="drawer-card ai-card">
   <button id="ai-close" class="dialog-close" aria-label="关闭">×</button>
-  <span class="eyebrow">每家单独设置</span>
-  <h2>三家对手的难度</h2>
-  <p class="drawer-lead">三档都以<b>精算</b>为底子（只求最快胡牌、不避炮）。<b>困难</b>就是精算；<b>激情</b>更爱做大胡——七对、碰碰胡、清一色，快听牌时还会留皮搏杠上开花，强度和困难差不多；<b>简单</b>常常没挑到进张最多的那张，强度约为困难的七成。你自己的托管固定用困难。</p>
+  <h2>对手难度</h2>
   <div id="ai-presets" class="ai-presets"><span>三家都设为</span><button type="button" data-ai-all="Easy">简单</button><button type="button" data-ai-all="Hard">困难</button><button type="button" data-ai-all="Passion">激情</button></div>
   <div id="ai-seats" class="ai-seats"></div>
-  <p class="dlg-note">复式对局实测（新规则、50 封顶，对三家引擎基线的每小局净分）：困难 <b>+4.89</b>、激情 <b>+5.85</b>（两者差异不显著；激情的大胡多近一倍、杠上开花多一半）、简单 <b>+3.36</b>。三家可以混着配。</p>
   <div class="dlg-actions"><button id="ai-done" class="primary" type="button">好了</button></div>
 </div></dialog>
 <dialog id="sound-dialog" class="rules-drawer sound-dialog" aria-label="声音设置"><div class="drawer-card sound-card"><button id="sound-close" class="dialog-close" aria-label="关闭声音设置">×</button><span class="eyebrow">牌室声音 · 本机设置</span><h2>声音</h2>

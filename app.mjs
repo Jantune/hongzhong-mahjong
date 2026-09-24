@@ -24,9 +24,9 @@ import { audio } from './audio.mjs';
 //          （少进几张牌，但不会为失误退一步），强度约为困难的七成。
 // 标定数据见 README 4.5「三档难度」。你自己的托管固定用困难（精算），不给选。
 const AI_POLICIES = {
-  Easy: { label: '简单', policy: makePolicy({ ...PROFILES.Efficient, blunder: 0.45, blunderSameShanten: true }), note: '精算的底子，但常常没挑到进张最多的那张' },
-  Hard: { label: '困难', policy: makePolicy('Efficient'), note: '精算：只求最快胡牌，不避炮' },
-  Passion: { label: '激情', policy: makePolicy({ ...PROFILES.Efficient, cleanPen: -1, pengPen: 0, qiduiPen: 0.5, holdLastSkin: true, holdSkinMaxXt: 1 }), note: '更爱做大胡：七对、碰碰胡、清一色，快听牌时留皮搏杠上开花；强度与困难相当' },
+  Easy: { label: '简单', policy: makePolicy({ ...PROFILES.Efficient, blunder: 0.45, blunderSameShanten: true }) },
+  Hard: { label: '困难', policy: makePolicy('Efficient') },
+  Passion: { label: '激情', policy: makePolicy({ ...PROFILES.Efficient, cleanPen: -1, pengPen: 0, qiduiPen: 0.5, holdLastSkin: true, holdSkinMaxXt: 1 }) },
 };
 const DEFAULT_AI = 'Hard';
 const HOSTED_AI = 'Hard';        // 托管固定用困难
@@ -1361,8 +1361,7 @@ function renderAiSeats() {
       const opts = Object.entries(AI_POLICIES)
         .map(([id, m]) => `<option value="${id}"${id === cur ? ' selected' : ''}>${m.label}</option>`).join('');
       return `<label class="ai-seat-row"><span class="ai-seat-name">${who}</span>`
-        + `<select data-ai-seat="${p}" aria-label="${who} 的打法">${opts}</select>`
-        + `<em>${AI_POLICIES[cur].note}</em></label>`;
+        + `<select data-ai-seat="${p}" aria-label="${who} 的难度">${opts}</select></label>`;
     }).join('');
   }
   const summary = $('ai-summary');
@@ -1411,9 +1410,6 @@ $('ai-seats')?.addEventListener('change', (event) => {
   const sel = event.target.closest('[data-ai-seat]');
   if (!sel) return;
   store.set(AI_SEAT_KEY(Number(sel.dataset.aiSeat)), sel.value);
-  // 原地改这一行的说明就够了——整段重建会把用户刚点的那个 select 换掉、丢掉焦点
-  const note = sel.parentElement?.querySelector('em');
-  if (note) note.textContent = AI_POLICIES[sel.value].note;
   aiChanged();
 });
 // 一键把三家设成同一档
