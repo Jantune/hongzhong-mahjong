@@ -850,12 +850,21 @@ function renderCallFlash(state) {
 let winTimer = null;
 let countTimer = null;
 
-// 锦标赛模式（默认关）：每人 300 点起，任意一家低于 0 本场结束并排名。
+// 锦标赛模式（默认关）：每人按本金起（默认 300，可在工具栏改），任意一家低于 0 本场结束并排名。
 // 关闭时和以前一样，分数从 0 起、一直打下去。开关只在开新的一场时生效，
 // tournamentActive 记录的是"当前这一场"按哪种赛制开的。
-const START_POINTS = 300;
+const DEFAULT_START = 300;
+const START_MIN = 10;
+const START_MAX = 100000;
 const TOURNAMENT_KEY = 'hz.tournament';
+const START_KEY = 'hz.tournament.start';
 let tournamentActive = false;
+let matchStart = DEFAULT_START;   // 当前这一场的本金（排名里的盈亏按它算）
+function sanitizeStart(v, fallback = DEFAULT_START) {
+  const n = Math.round(Number(v));
+  return String(v).trim() !== '' && Number.isFinite(n) && n >= START_MIN && n <= START_MAX ? n : fallback;
+}
+const startWanted = () => sanitizeStart(store.get(START_KEY, String(DEFAULT_START)));
 const tournamentWanted = () => store.get(TOURNAMENT_KEY, '0') === '1';
 const matchOver = (state) => tournamentActive && !!state?.result && state.scores.some((s) => s < 0);
 
@@ -990,7 +999,7 @@ function showRanking() {
   let rank = 0;
   const rows = order.map((p, i) => {
     if (i === 0 || scores[p] !== scores[order[i - 1]]) rank = i + 1;   // 同分同名次
-    const delta = scores[p] - START_POINTS;
+    const delta = scores[p] - matchStart;
     return `<li class="rank-${rank}${p === 0 ? ' is-me' : ''}${scores[p] < 0 ? ' is-busted' : ''}">
       <span class="rank-no">${rank}</span>
       <span class="rank-who">${seatName(p)}${p === 0 ? '（你）' : ''}${scores[p] < 0 ? '<small>跌破 0 分</small>' : ''}</span>
@@ -1173,9 +1182,11 @@ function restart() {
   renderedLogCount = -1;
   resetCoach();
   tournamentActive = tournamentWanted();
-  const start = tournamentActive ? START_POINTS : 0;
+  matchStart = startWanted();
+  const start = tournamentActive ? matchStart : 0;
   game = createGame({ cap: Number(capRoot?.value || 50), seed: seedFromUrl ?? Date.now(), dealer: 0, scores: [start, start, start, start], round: 1 });
-  $('tournament-badge')?.toggleAttribute('hidden', !tournamentActive);
+  const badge = $('tournament-badge');
+  if (badge) { badge.hidden = !tournamentActive; badge.textContent = `锦标赛 · ${matchStart} 点起`; }
   audioLogCount = game.log?.length || 0;
   audio.playShuffle();
   render();
@@ -1252,17 +1263,34 @@ function showTourHint(html, stay = 6000) {
   if (tourHintTimer) window.clearTimeout(tourHintTimer);
   tourHintTimer = window.setTimeout(() => { el.hidden = true; }, stay);
 }
+// 这一场刚开、还没人出过牌就直接按新设置开局；打到一半则不打断，下一场生效
+function applyTourChange(explain) {
+  const fresh = game && game.round === 1 && !game.result && game.discards.every((d) => d.length === 0);
+  if (fresh) { restart(); showTourHint(`${explain} 已按新设置开局。`); return; }
+  showTourHint(`${explain} 从下一场开始生效。<button type="button" data-tour-now>现在就开新的一场</button>`, 9000);
+}
+const tourPoints = $('tour-points');
+const tourPointsWrap = $('tour-points-wrap');
 if (tourToggle) {
   tourToggle.checked = tournamentWanted();
+  if (tourPointsWrap) tourPointsWrap.hidden = !tourToggle.checked;
   tourToggle.addEventListener('change', () => {
     store.set(TOURNAMENT_KEY, tourToggle.checked ? '1' : '0');
-    const explain = tourToggle.checked
-      ? '<b>锦标赛模式</b>：每人 300 点起，任一家跌破 0 分本场结束，弹出排名。'
-      : '<b>锦标赛模式已关</b>：分数从 0 起，一直打下去，不排名。';
-    // 这一场刚开、还没人出过牌就直接换赛制；打到一半则不打断，下一场生效
-    const fresh = game && game.round === 1 && !game.result && game.discards.every((d) => d.length === 0);
-    if (fresh) { restart(); showTourHint(`${explain} 已按新赛制开局。`); return; }
-    showTourHint(`${explain} 从下一场开始生效。<button type="button" data-tour-now>现在就开新的一场</button>`, 9000);
+    if (tourPointsWrap) tourPointsWrap.hidden = !tourToggle.checked;
+    applyTourChange(tourToggle.checked
+      ? `<b>锦标赛模式</b>：每人 ${startWanted()} 点起，任一家跌破 0 分本场结束，弹出排名。`
+      : '<b>锦标赛模式已关</b>：分数从 0 起，一直打下去，不排名。');
+  });
+}
+if (tourPoints) {
+  tourPoints.value = String(startWanted());
+  tourPoints.addEventListener('change', () => {
+    // 输错（空、非数字、超出 10–100000）就退回原来的值，什么都不改
+    const v = sanitizeStart(tourPoints.value, startWanted());
+    tourPoints.value = String(v);
+    if (v === startWanted()) return;
+    store.set(START_KEY, String(v));
+    if (tourToggle?.checked) applyTourChange(`<b>锦标赛本金</b>：每人 ${v} 点起。`);
   });
 }
 $('tour-hint')?.addEventListener('click', (event) => {

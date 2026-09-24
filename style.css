@@ -363,3 +363,7 @@ dialog{color:var(--ink);border:1px solid #dce0d1;background:var(--surface);borde
 .ai-presets{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:14px;font-size:12px;color:var(--muted)}
 .ai-presets button{min-height:32px;padding:5px 12px;border:1px solid var(--line);border-radius:7px;background:var(--paper);color:var(--ink);font-family:inherit;font-size:12px;cursor:pointer}
 .ai-presets button:hover{border-color:var(--green)}
+/* 锦标赛本金（只在锦标赛开关打开时显示） */
+.tour-points[hidden]{display:none}
+.tour-points input{width:64px;padding:3px 6px;font:inherit;font-size:12px;font-variant-numeric:tabular-nums;color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:6px}
+.tour-points input:focus{outline:2px solid var(--green);outline-offset:1px}
