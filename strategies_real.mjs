@@ -108,6 +108,9 @@ const DEFAULTS = {
 };
 
 export const PROFILES = {
+  // 困难（游戏默认对手，也是建议面板的口径）：精算 + 碰碰胡不折价、七对折价 0.5。
+  // 锦标赛里对精算名次提前约 0.2（README 4.5「锦标赛最佳策略」）。
+  Hard: { ...DEFAULTS, pengPen: 0, qiduiPen: 0.5 },
   // 牌效实战流：只看进张，不做防守。用来隔离"把吃碰判断做对"本身值多少。
   Efficient: { ...DEFAULTS },
   // 攻守兼备流：真实中上水平牌手的默认形态。

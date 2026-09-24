@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createGame, visibleState, tileType, NAMES } from './game.mjs';
-import { advise } from './advisor.mjs';
+import { advise, shantenLabel } from './advisor.mjs';
 
 const T = (name) => NAMES.indexOf(name);
 
@@ -55,4 +55,17 @@ test('皮子在手但其余的牌没听：照常给出牌建议，杠只附一�
   const adv = advise(visibleState(s, 0), 0);
   assert.equal(adv.mode, 'discard');
   assert.match(adv.kongNote, /皮杠/);
+});
+
+test('建议与困难档同一口径：对子多时走七对，显示真实向听并注明路线', () => {
+  // 五对 + 四张散牌，屁胡路线还很远；打一张散牌后七对差两对 = 1 向听
+  const s = stateWith({
+    hand: ['一万', '一万', '四万', '四万', '二条', '二条', '五筒', '五筒', '东', '东', '九万', '八条', '一筒', '南'].map(T),
+  });
+  const adv = advise(visibleState(s, 0), 0);
+  assert.equal(adv.mode, 'discard');
+  const top = adv.rows[0];
+  assert.equal(top.route, '七对');
+  assert.equal(shantenLabel(top), '七对 · 1 向听', '显示的是七对的真实步数，不是带折价的排序分');
+  assert.ok(['九万', '八条', '一筒', '南'].includes(NAMES[top.type]), `应当打散牌，实际打 ${NAMES[top.type]}`);
 });

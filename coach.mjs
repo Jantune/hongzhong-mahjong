@@ -12,7 +12,7 @@
 // 22,255 个局面交叉验证的。让它做翻译，不做推导。
 
 import { NAMES } from './game.mjs';
-import { xiangtingText } from './advisor.mjs';
+import { xiangtingText, shantenLabel } from './advisor.mjs';
 
 const SEAT_NAMES = ['南家（你）', '东家', '北家', '西家'];
 
@@ -144,7 +144,7 @@ export function adviceSummary(adv) {
     lines.push(`引擎推荐：打 ${NAMES[Math.floor(Number(adv.headlineTile) / 4)]}`);
     lines.push('候选（按进张速度排序，不含防守考量）：');
     for (const r of adv.rows) {
-      lines.push(`  ${NAMES[r.type]}：打完 ${xiangtingText(r.shanten)}，有效牌 ${r.uk.kinds} 种，` +
+      lines.push(`  ${NAMES[r.type]}：打完 ${shantenLabel(r)}，有效牌 ${r.uk.kinds} 种，` +
         `这张牌场上还剩 ${r.danger.live} 张，放炮风险${r.danger.label}${r.recommended ? '  ← 推荐' : ''}`);
     }
   } else if (adv.mode === 'call') {

@@ -8,7 +8,7 @@ import {
 } from './game.mjs';
 
 import { makePolicy, PROFILES } from './strategies_real.mjs';
-import { advise, xiangtingText } from './advisor.mjs';
+import { advise, xiangtingText, shantenLabel } from './advisor.mjs';
 import { PROVIDERS, DEFAULT_PROVIDER, providerOf, ask, probeProxy, testConnection, describeTarget, endpointPreview } from './llm.mjs';
 import { buildSystem, buildQuestion, DEFAULT_QUESTION, plainText } from './coach.mjs';
 
@@ -22,7 +22,7 @@ import { audio } from './audio.mjs';
 //   简单 = 困难 + 温和失误：约 55% 的出牌在「打完向听相同」的牌里改打次优那张
 //          （少进几张牌，但不会为失误退一步），强度约为困难的七成。
 // 你自己的托管固定用纯精算，不给选。
-const HARD_PROFILE = { ...PROFILES.Efficient, pengPen: 0, qiduiPen: 0.5 };
+const HARD_PROFILE = PROFILES.Hard;
 const AI_POLICIES = {
   Easy: { label: '简单', policy: makePolicy({ ...HARD_PROFILE, blunder: 0.55, blunderSameShanten: true }) },
   Hard: { label: '困难', policy: makePolicy(HARD_PROFILE) },
@@ -650,7 +650,7 @@ function renderAdvice(state) {
     // 进张数和向听放同一格：窄屏下四列放不下，而进张恰恰是排序依据，不能被藏掉。
     const body = adv.rows.map((r) => `<tr class="${r.recommended ? 'is-best' : ''}" data-action="select-tile" data-tile-id="${r.action.tile}" title="点一下就选中这张牌">
       <td>${tileMarkup(state, r.action.tile, { compact: true })}</td>
-      <td>${xiangtingText(r.shanten)}<small>${adviceTilesLine(r)}</small></td>
+      <td>${shantenLabel(r)}<small>${adviceTilesLine(r)}</small></td>
       <td class="danger-${r.danger.rank}">${r.danger.label}<small>场上剩 ${r.danger.live}</small></td>
     </tr>`).join('');
     table = `<table class="advice-table"><thead><tr><th>打这张</th><th>打完之后</th><th>放炮风险</th></tr></thead><tbody>${body}</tbody></table>`;
