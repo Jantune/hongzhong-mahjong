@@ -353,3 +353,29 @@ test('王牌恒定 14 张，且整局结束后确有牌从未出现在牌局里'
   assert.ok(checkedRounds >= 10, '应当跑完足够多的整局');
   assert.equal(leftoverMin, DEAD_WALL_SIZE);
 });
+
+test('补杠不限这一巡摸到的牌：早先留着的第四张也能补，刚碰完还没摸牌时不能补', () => {
+  const state = constructedState({
+    dealer: 0,
+    turn: 0,
+    hands: [
+      [1, 2, 3, 10, 11, 12, 19, 20, 21, 26, 5],   // 九筒早就在手里，这一巡摸的是六万
+      [22, 23, 24, 25, 27, 28, 29, 30, 32, 33, 13, 14, 15],
+      [13, 14, 15, 16, 17, 18, 27, 28, 29, 30, 32, 33, 22],
+      [4, 4, 6, 6, 7, 7, 9, 9, 16, 16, 17, 17, 18],
+    ],
+    melds: [[{ kind: 'pong', types: [26, 26, 26], open: true }], [], [], []],
+  });
+  assert.equal(tileType(state.lastDraw), 5, '这一巡摸到的是六万，不是九筒');
+  const added = legalActions(state, 0).find(a => a.kind === 'addedKong');
+  assert.ok(added, '手里早先留着的九筒应当可以补杠');
+  assert.equal(tileType(added.tile), 26);
+  const after = applyAction(state, added);
+  validateState(after);
+  assert.equal(after.melds[0][0].kind, 'kong');
+  assert.equal(after.melds[0][0].tiles.length, 4);
+  assert.equal(after.gangKai, true, '补杠后从王牌补一张，可能杠上开花');
+  // 刚碰完、还没摸牌：不能补杠
+  const justPonged = { ...state, canSelfKong: [false, false, false, false] };
+  assert.ok(!legalActions(justPonged, 0).some(a => a.kind === 'addedKong'));
+});

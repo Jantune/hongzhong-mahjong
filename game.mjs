@@ -279,9 +279,9 @@ function selfKongActions(state, player) {
       if (meld.kind !== 'pong' || !meld.tiles.length) continue;
       const t = tileType(meld.tiles[0]);
       if (t === state.indicatorType || t === 31 || t === state.joker) continue;
-      for (const id of handIdsOfKind(state, player, t)) {
-        if (state.lastDrawPlayer === player && state.lastDraw === id) out.push({ kind: 'addedKong', player, tile: id, meldIndex: i });
-      }
+      // 补杠：碰过的刻子，手里有第四张就能补，不限于这一巡刚摸到的那张（早先留着的也行）。
+      // canSelfKong 保证是自己摸过牌之后的回合——刚碰完、还没摸牌时不能补。
+      for (const id of handIdsOfKind(state, player, t)) out.push({ kind: 'addedKong', player, tile: id, meldIndex: i });
     }
   }
   return out;
@@ -453,7 +453,7 @@ function applySelfKong(state, action) {
     const meld = state.melds[p][action.meldIndex];
     const index = state.hands[p].indexOf(action.tile);
     if (!meld || meld.kind !== 'pong' || index < 0
-      || !state.canSelfKong[p] || state.lastDrawPlayer !== p || state.lastDraw !== action.tile) throw Error('invalid added kong');
+      || !state.canSelfKong[p] || tileType(action.tile) !== tileType(meld.tiles[0])) throw Error('invalid added kong');
     state.hands[p].splice(index, 1);
     meld.kind = 'kong';
     meld.tiles.push(action.tile);
