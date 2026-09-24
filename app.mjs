@@ -16,20 +16,20 @@ import { tileMarkup, TILE_NAMES } from './tiles.mjs';
 import { audio } from './audio.mjs';
 
 // 电脑对手分三档，每家单独设，存在 localStorage 的 hz.ai.seat.<座位号> 里。
-// 三档共用精算的向听—进张评估（只求最快胡牌、不避炮），实测它是目前最强的打法：
-//   困难 = 精算原样；
-//   激情 = 精算 + 大胡路线放宽（清一色愿慢 1 步、碰碰胡不折价、七对折价 0.5），
-//          再加上最后一张皮子在 1 向听时才杠、搏杠上开花；强度与困难相当，大胡明显更多；
-//   简单 = 精算 + 温和失误：约 45% 的出牌在「打完向听相同」的牌里改打次优那张
+// 三档都以精算的向听—进张评估为底子（只求最快胡牌、不避炮）：
+//   困难 = 精算 + 碰碰胡不折价、七对折价 0.5（锦标赛里对精算名次提前约 0.2，见 README 4.5）；
+//   激情 = 困难 + 最后一张皮子在 1 向听时才杠、搏杠上开花（杠开多六成，强度与困难相当）；
+//   简单 = 困难 + 温和失误：约 55% 的出牌在「打完向听相同」的牌里改打次优那张
 //          （少进几张牌，但不会为失误退一步），强度约为困难的七成。
-// 标定数据见 README 4.5「三档难度」。你自己的托管固定用困难（精算），不给选。
+// 你自己的托管固定用纯精算，不给选。
+const HARD_PROFILE = { ...PROFILES.Efficient, pengPen: 0, qiduiPen: 0.5 };
 const AI_POLICIES = {
-  Easy: { label: '简单', policy: makePolicy({ ...PROFILES.Efficient, blunder: 0.45, blunderSameShanten: true }) },
-  Hard: { label: '困难', policy: makePolicy('Efficient') },
-  Passion: { label: '激情', policy: makePolicy({ ...PROFILES.Efficient, cleanPen: -1, pengPen: 0, qiduiPen: 0.5, holdLastSkin: true, holdSkinMaxXt: 1 }) },
+  Easy: { label: '简单', policy: makePolicy({ ...HARD_PROFILE, blunder: 0.55, blunderSameShanten: true }) },
+  Hard: { label: '困难', policy: makePolicy(HARD_PROFILE) },
+  Passion: { label: '激情', policy: makePolicy({ ...HARD_PROFILE, holdLastSkin: true, holdSkinMaxXt: 1 }) },
 };
 const DEFAULT_AI = 'Hard';
-const HOSTED_AI = 'Hard';        // 托管固定用困难
+const HOSTED_POLICY = makePolicy('Efficient');   // 托管固定用纯精算
 const AI_SEATS = [1, 2, 3];      // 只有三家对手可选
 // 旧版存的是策略名（稳健 / 精算），换成新档位
 const LEGACY_AI = { Efficient: 'Hard', Guarded: 'Hard' };
@@ -228,12 +228,11 @@ async function sendQuestion() {
 // 每家单独设策略。策略是纯函数（只读 state），中途换人不用重开牌局，下一次决策即生效。
 const AI_SEAT_KEY = (p) => `hz.ai.seat.${p}`;
 function aiNameOf(p) {
-  if (p === 0) return HOSTED_AI;
   const raw = store.get(AI_SEAT_KEY(p), DEFAULT_AI);
   const v = LEGACY_AI[raw] || raw;
   return Object.hasOwn(AI_POLICIES, v) ? v : DEFAULT_AI;
 }
-const aiPolicy = (p) => AI_POLICIES[aiNameOf(p)].policy;
+const aiPolicy = (p) => (p === 0 ? HOSTED_POLICY : AI_POLICIES[aiNameOf(p)].policy);
 
 let game;
 let generation = 0;
