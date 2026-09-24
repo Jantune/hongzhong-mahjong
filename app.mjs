@@ -642,8 +642,8 @@ function renderAdvice(state) {
   }
   if (!adv || adv.mode === 'none') return hideAdvice();
 
-  const head = adv.mode === 'discard'
-    ? `建议打 ${tileMarkup(state, adv.headlineTile, { compact: true })}`
+  const head = adv.headlineTile !== undefined
+    ? adv.headline.replace('{TILE}', tileMarkup(state, adv.headlineTile, { compact: true }))
     : adv.headline;
 
   let table = '';
@@ -662,6 +662,10 @@ function renderAdvice(state) {
       <td>${r.gain >= 1 ? `快 ${Math.round(r.gain)} 步` : '没变快'}</td>
     </tr>`).join('');
     table = `<table class="advice-table"><thead><tr><th>选择</th><th>之后</th><th>效果</th></tr></thead><tbody>${body}</tbody></table>`;
+  } else if (adv.mode === 'kong' && adv.waits?.length) {
+    // 杠完听的牌：杠开能胡的也算能胡，不划掉
+    const waits = adv.waits.map((w) => ({ ...w, ok: w.ok || w.gangKai }));
+    table = `<p class="advice-waits">${adviceTilesLine({ waits })}</p>`;
   }
 
   const warn = adv.warnings.length

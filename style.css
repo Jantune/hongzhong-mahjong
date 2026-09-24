@@ -382,3 +382,6 @@ dialog{color:var(--ink);border:1px solid #dce0d1;background:var(--surface);borde
 .last-play[data-from="north"] .last-play-tile{top:-6px}
 .last-play[data-from="south"] .last-play-tile{top:6px}
 @media(max-width:520px){.last-play{gap:14px}}
+.advice-waits{margin:10px 0 0;font-size:12px;line-height:2}
+.advice-waits .adv-label{display:inline-block;margin-right:4px;font-weight:700;color:var(--ink)}
+.advice-waits em{font-style:normal;color:var(--muted);margin-left:2px}

@@ -179,6 +179,40 @@ export function advise(view, player = 0) {
     ? `或者${[...new Set(kongOptions.map((a) => `开${KONG_LABEL[a.kind]} ${NAMES[tileType(a.tile)]}`))].join(' / ')}。`
     : '';
 
+  // ---- 最后一张皮子、其余的牌已经听牌：先杠，没有取舍 ----
+  // 皮子不杠就不能胡，而活牌已经听了，杠只有好处：补上来那张摸到就是杠上开花。
+  // 这时候如果只看「打哪张」，皮子打不出去，只能从活牌里拆一张，建议就会退成 1 向听。
+  const skinKongs = kongOptions.filter((a) => a.kind === 'skinKong');
+  const skinsInHand = hand.filter((id) => tileType(id) === 31 || tileType(id) === view.indicatorType).length;
+  const liveTiles = counts.reduce((a, b) => a + b, 0) + jokers;
+  if (skinKongs.length && skinsInHand === 1 && liveTiles === needGroups * 3 + 1
+    && toXiangting(bestShanten(counts, jokers, needGroups, hasChi)) === 0) {
+    const sk = skinKongs[0];
+    const waits = waitsAfterSkinKong(view, player, sk.tile, vis);
+    const winnable = waits.filter((w) => w.ok || w.gangKai);
+    if (winnable.length) {
+      const kai = waits.filter((w) => w.gangKai);
+      const jk = kongOptions.find((a) => a.kind === 'jokerKong');
+      const jokerNote = jk && jokers > 0 && toXiangting(bestShanten(counts, jokers - 1, needGroups, hasChi)) > 0
+        ? `赖杠先别开：${NAMES[view.joker]}正当万能牌用，开了就不听了。`
+        : '';
+      return {
+        mode: 'kong',
+        headline: '建议先开皮杠 {TILE}',
+        headlineTile: sk.tile,
+        detail: `除去这张皮子，其余的牌已经听牌。杠完听 ${tileCountText(winnable)}；`
+          + (kai.length ? `补牌那一张摸到${kai.length === winnable.length ? '其中任何一张' : ` ${kai.map(tileLabel).join('、')}`}就是杠上开花。` : '补牌摸到也能胡。')
+          + (winnable.some((w) => !w.ok) ? `${winnable.every((w) => !w.ok) ? '这几张' : winnable.filter((w) => !w.ok).map(tileLabel).join('、')}只有杠开这一下能胡，错过了之后眼下打点不够 4。` : '')
+          + '皮子不杠不能胡，这时候杠没有代价。',
+        waits,
+        kongNote: jokerNote,
+        rows: [],
+        warnings: warnings.filter((w) => !w.startsWith('手上有')),
+        best: sk,
+      };
+    }
+  }
+
   // ---- 出牌 ----
   const discards = actions.filter((a) => a.kind === 'discard');
   if (!discards.length) {
@@ -283,7 +317,17 @@ export function tileLabel(x) {
  */
 function waitsAfterDiscard(view, player, discardId, jokerDiscardId, vis) {
   const drop = discardId ?? jokerDiscardId;
-  const hand = view.hands[player].filter((id) => id !== drop);
+  return waitsForHand(view, player, view.hands[player].filter((id) => id !== drop), vis);
+}
+
+/** 开掉这张皮子之后听哪些牌；gangKai = 补牌那一下摸到就是杠上开花（按杠开计分判定）。 */
+function waitsAfterSkinKong(view, player, skinId, vis) {
+  const hand = view.hands[player].filter((id) => id !== skinId);
+  const specialKongs = view.specialKongs.map((k, p) => (p === player ? [...k, { kind: 'skin', tile: skinId }] : k));
+  return waitsForHand({ ...view, specialKongs }, player, hand, vis, { gangKai: true });
+}
+
+function waitsForHand(view, player, hand, vis, { gangKai = false } = {}) {
   const shape = new Set(fastWaits(view, player, hand));
   const out = [];
   for (let t = 0; t < 34; t += 1) {
@@ -297,7 +341,8 @@ function waitsAfterDiscard(view, player, discardId, jokerDiscardId, vis) {
     let ron = false;
     for (let d = 1; !ron && d < 4; d += 1) ron = !!evaluateWin(probe, player, { from: (player + d) % 4, tile: id });
     const ok = self || ron;
-    if (ok || shape.has(t)) out.push({ t, live: Math.max(0, 4 - vis[t] - own), ok, selfOnly: self && !ron, joker: t === view.joker });
+    const kai = gangKai && !!evaluateWin(selfProbe, player, { selfDraw: true, gangKai: true });
+    if (ok || kai || shape.has(t)) out.push({ t, live: Math.max(0, 4 - vis[t] - own), ok, selfOnly: self && !ron, gangKai: kai, joker: t === view.joker });
   }
   return out;
 }
