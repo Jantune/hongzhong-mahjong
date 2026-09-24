@@ -329,9 +329,9 @@ function evaluateHand(input = {}) {
       }
 
       const big = labels.some(name => DAHU_NAMES.has(name));
-      // The two-joker prohibition belongs only to an otherwise plain屁胡.
-      // Seven pairs and every real大胡 may retain any number of jokers.
-      if (!big && !mode.sevenPairs && physicalJokers > 1 && W < normaliseCap(cap)) continue;
+      // 两赖禁屁胡：手持两张及以上赖子不能胡屁胡，胡家自身倍数到顶也不解除。
+      // 七对与大胡（含杠上开花）不受限，赖子张数不限。
+      if (!big && !mode.sevenPairs && physicalJokers > 1) continue;
       // 门前清屁胡（没吃、没碰、没明杠；暗杠、皮杠、赖杠不算开口）不能捉铳，只能自摸。
       // 七对、大胡不受此限。
       if (!big && !mode.sevenPairs && !selfDraw && !players[winner]?.open) continue;
