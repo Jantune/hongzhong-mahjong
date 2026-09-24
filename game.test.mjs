@@ -379,3 +379,36 @@ test('补杠不限这一巡摸到的牌：早先留着的第四张也能补，�
   const justPonged = { ...state, canSelfKong: [false, false, false, false] };
   assert.ok(!legalActions(justPonged, 0).some(a => a.kind === 'addedKong'));
 });
+
+test('封顶热更新：牌局中途改封顶，胡牌时按新封顶结算，结果里记下所用的封顶', () => {
+  const make = () => constructedState({
+    dealer: 0,
+    turn: 0,
+    hands: [
+      [16, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30],
+      [9, 9, 9, 10, 10, 10, 11, 11, 11, 13, 13, 13, 16],   // 条子清一色碰碰胡，单钓八条
+      [3, 4, 5, 6, 7, 3, 4, 5, 6, 7, 27, 28, 29],
+      [12, 12, 14, 14, 15, 15, 17, 17, 32, 32, 33, 33, 30],
+    ],
+  });
+  const winAfterDiscard = (state) => {
+    const discard = legalActions(state, 0).find(a => a.kind === 'discard' && tileType(a.tile) === 16);
+    const pending = applyAction(state, discard);
+    const win = legalActions(pending, 1).find(a => a.kind === 'win');
+    assert.ok(win, '东家应当能胡八条');
+    let done = applyAction(pending, win);
+    for (const p of [2, 3]) if (done.phase === 'reaction') done = applyAction(done, { kind: 'pass', player: p });
+    return done;
+  };
+  // 对照：50 封顶，胡家 ×128 达到封顶 → 三家各付 50 + 未开口半顶 25
+  const at50 = winAfterDiscard(make());
+  assert.deepEqual(at50.result.score.payments, [75, 0, 75, 75]);
+  assert.equal(at50.result.cap, 50);
+  // 中途把封顶改成 10（界面热更新做的就是改 rules.cap）
+  const s = make();
+  s.rules.cap = 10;
+  const at10 = winAfterDiscard(s);
+  assert.deepEqual(at10.result.score.payments, [15, 0, 15, 15], '按新封顶 10 + 半顶 5 结算');
+  assert.equal(at10.result.cap, 10);
+  assert.equal(nextRound(at10).rules.cap, 10, '下一局沿用新封顶');
+});

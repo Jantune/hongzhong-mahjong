@@ -352,6 +352,8 @@ function settleWin(state, player, event) {
   state.result = {
     type: 'win', winner: player, from: event.from ?? null, tile: event.tile ?? null,
     score: { ...score, payments, total }, deltas, scores: [...state.scores],
+    // 结算用的封顶：封顶可以中途热更新，局终之后再改也不能让已结算的这一局换算法显示
+    cap: state.rules.cap,
   };
   state.log.push({ type: 'win', player, from: event.from ?? null, labels: score.labels ?? [] });
   return state;

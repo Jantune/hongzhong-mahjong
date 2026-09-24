@@ -706,7 +706,7 @@ function isWidePayment(score, labels, selfDraw) {
 }
 
 function settlementInfo(state, result, score, winner, W, payments) {
-  const cap = Number(state.rules?.cap ?? 50);
+  const cap = Number(result.cap ?? state.rules?.cap ?? 50);   // 按结算那一刻的封顶显示
   const labels = Array.isArray(score.labels) ? score.labels : [];
   const selfDraw = result.from === null || result.from === undefined;
   const wide = isWidePayment(score, labels, selfDraw);
@@ -927,7 +927,7 @@ const bigTotal = (cap) => Math.max(cap, 30);
 function winTier(state) {
   const r = state.result;
   if (!r || r.type !== 'win') return 'normal';
-  const cap = Number(state.rules?.cap) || 50;
+  const cap = Number(r.cap ?? state.rules?.cap) || 50;
   const threePay = r.from === null || r.from === r.winner || !!r.score?.big || !!r.score?.sevenPairs;
   if (threePay && (r.score?.W || 0) >= cap) return 'gold';
   if (r.score?.big || (r.score?.total || 0) >= bigTotal(cap)) return 'big';
@@ -998,7 +998,7 @@ function announceWin(state) {
   banner.className = `win-banner ${draw ? 'is-draw' : selfDraw ? 'is-selfdraw' : 'is-ron'}${isMe ? ' is-me' : ''} tier-${tier}`;
   $('win-kind').textContent = tier === 'gold' ? '金 顶' : draw ? '荒 庄' : selfDraw ? '自 摸' : '点 炮';
   // 高档位：顶部小标签 + 总分滚动
-  const cap = Number(state.rules?.cap) || 50;
+  const cap = Number(r?.cap ?? state.rules?.cap) || 50;
   $('win-eyebrow').textContent = tier === 'gold'
     ? `胡家倍数 ×${r.score.W} · 达到 ${cap} 封顶`
     : tier === 'big' && r.score?.big ? '大 胡' : '';
