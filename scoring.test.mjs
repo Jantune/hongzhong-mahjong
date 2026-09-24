@@ -88,21 +88,17 @@ test('one physical joker is a soft屁胡; two are prohibited only for plain屁�
   }), null);
 });
 
-test('two-joker屁胡 is allowed once the winner itself reaches cap', () => {
-  const r = evalHand(pihuTwoJokers, {
-    cap: 10,
-    specialKongs: [
-      { kind: 'skin', tile: 8 }, { kind: 'skin', tile: 31 },
-      { kind: 'skin', tile: 31 }, { kind: 'skin', tile: 31 },
-    ],
-    players: openWinner(),
-  });
-  assert.ok(r);
-  assert.deepEqual(r.labels, ['屁胡']);
-  assert.equal(r.W, 16);
-  assert.equal(r.hard, false);
-  // 屁胡点炮只有点炮者一家付，胡家倍数到了封顶也不是金顶：只付封顶 10，没有顶外半顶
-  assert.deepEqual(r.payments, [0, 10, 0, 0]);
+test('two-joker屁胡 stays prohibited even when the winner itself reaches cap', () => {
+  const fourSkins = [
+    { kind: 'skin', tile: 8 }, { kind: 'skin', tile: 31 },
+    { kind: 'skin', tile: 31 }, { kind: 'skin', tile: 31 },
+  ];
+  // 四个皮杠，胡家自身 ×16 已超过封顶 10，两赖屁胡仍然不能胡（点炮、自摸都不行）
+  assert.equal(evalHand(pihuTwoJokers, { cap: 10, specialKongs: fourSkins, players: openWinner() }), null);
+  assert.equal(evalHand(pihuTwoJokers, { cap: 10, specialKongs: fourSkins, selfDraw: true, from: null, players: openWinner() }), null);
+  // 同样两张赖子，大胡照样能胡：清一色、杠上开花
+  assert.ok(evalHand([0, 1, 2, 1, 2, 3, 3, 4, 5, 6, 6, 7, 33, 33], { players: openWinner({ 1: { open: true } }) }));
+  assert.ok(evalHand(pihuTwoJokers, { selfDraw: true, from: null, gangKai: true, specialKongs: [{ kind: 'skin', tile: 31 }] }));
 });
 
 test('hard restoration: joker used as its own tile is hard胡', () => {
