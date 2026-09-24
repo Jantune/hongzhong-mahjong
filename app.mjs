@@ -354,6 +354,43 @@ function pacedDelay(action) {
   return remaining > 0 ? Math.max(ms, Math.round(remaining) + 150) : ms;
 }
 
+// ---- 中间那张「刚打出的牌」：从出牌那家飞过来，旁边的小三角一直指着他 ----
+// 同一张牌只画一次：渲染很频繁（别家回应过牌也会重画），每次重建会把飞牌动画打断。
+let lastPlayKey = null;
+function renderLastPlay(state, tile, player) {
+  const root = $('last-play');
+  if (!root) return;
+  if (tile === undefined || player === undefined) {
+    lastPlayKey = null;
+    root.innerHTML = '';
+    delete root.dataset.from;
+    return;
+  }
+  const key = `${state.round}:${player}:${tile}`;
+  if (key === lastPlayKey) return;
+  lastPlayKey = key;
+  const place = SEATS[player]?.place || '';
+  root.dataset.from = place;
+  root.innerHTML = `<span class="last-play-tile">${tileMarkup(state, tile)}<i class="lp-arrow" aria-hidden="true"></i></span>`
+    + `<span class="last-play-label">${seatName(player)}<b>打出 ${tileName(state, tile)}</b></span>`;
+  flyFromSeat(root.querySelector('.last-play-tile'), player);
+}
+/** 让牌从出牌那家的座位滑到桌子中间。系统开了「减少动态效果」就不飞，只留三角。 */
+function flyFromSeat(el, player) {
+  const seat = $(`p${player}`);
+  if (!el || !seat || !el.animate) return;
+  if (window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) return;
+  const a = seat.getBoundingClientRect();
+  const b = el.getBoundingClientRect();
+  if (!a.width || !b.width) return;   // 页面不可见或还没布局好
+  const dx = a.left + a.width / 2 - (b.left + b.width / 2);
+  const dy = a.top + a.height / 2 - (b.top + b.height / 2);
+  el.animate([
+    { transform: `translate(${dx}px, ${dy}px) scale(.55)`, opacity: 0.35 },
+    { transform: 'translate(0, 0) scale(1)', opacity: 1 },
+  ], { duration: 280, easing: 'cubic-bezier(.2, .75, .25, 1)' });
+}
+
 function thinkDelay(action) {
   const speed = PACE_SPEED;
   const kind = !action ? 'discard' : action.kind === 'pass' ? 'pass' : CALL_KINDS.has(action.kind) ? 'call' : 'discard';
@@ -516,7 +553,7 @@ function renderCenter(state) {
   const recent = state.log?.findLast(entry => entry?.type === 'discard');
   const tile = state.pending?.tile ?? recent?.tile;
   const player = state.pending?.from ?? recent?.player;
-  $('last-play').innerHTML = tile !== undefined ? `${tileMarkup(state, tile)}<span class="last-play-label">${seatName(player)}<b>打出 ${tileName(state, tile)}</b></span>` : '';
+  renderLastPlay(state, tile, player);
   const status = statusRoot;
   if (status) {
     let text = '';
