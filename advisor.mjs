@@ -303,7 +303,7 @@ export function advise(view, player = 0) {
         ? `打完${top.route ? `${top.route}` : ''}听牌：听 ${tileCountText(top.waits.filter((w) => w.ok))}。`
           + (top.waits.some((w) => !w.ok) ? `（${top.waits.filter((w) => !w.ok).map(tileLabel).join('、')}打点不够 4，胡不了）` : '')
           + (top.waits.filter((w) => w.ok).every((w) => w.selfOnly)
-            ? '门前清屁胡只能自摸，别人打出来胡不了；吃、碰或明杠开口后才能捉铳。'
+            ? '门前清的软屁胡（用了赖子）只能自摸，别人打出来胡不了；吃、碰或明杠开口后才能捉铳。'
             : top.waits.some((w) => w.selfOnly) ? `${top.waits.filter((w) => w.selfOnly).map(tileLabel).join('、')}只能自摸。` : '')
         : top.waits.length
           ? `打完听 ${tileCountText(top.waits)}，但眼下打点不够 4，胡不了：没人开口、也没杠，屁胡每家只付 2。等有人开口或自己开杠才能胡。`
@@ -335,7 +335,7 @@ export function tileLabel(x) {
  * 打掉 discardId 之后听哪些牌，以及每种在场上还剩几张。
  * 牌型听牌（fastWaits）与完整胡牌判定（evaluateWin：自摸或任一家点炮）取并集；
  * ok = false 表示牌型听了但眼下胡不了（最常见：没人开口也没杠，硬屁胡每家只付 2 点，够不上 4 点起胡）。
- * selfOnly = true 表示只能自摸、别人打出来胡不了（最常见：门前清屁胡不能捉铳）。
+ * selfOnly = true 表示只能自摸、别人打出来胡不了（最常见：门前清的软屁胡不能捉铳）。
  * 皮子本身不算听牌。
  */
 function waitsAfterDiscard(view, player, discardId, jokerDiscardId, vis) {

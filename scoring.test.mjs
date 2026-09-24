@@ -6,7 +6,7 @@ const makePlayers = (changes = {}) => [0, 1, 2, 3].map(i => ({
   open: false, kongCount: 0, jokerKongCount: 0, ...(changes[i] || {}),
 }));
 
-// 胡家（0 号）已开口。门清屁胡只能自摸，所以屁胡点炮的用例都让胡家先开口。
+// 胡家（0 号）已开口。门清软屁胡只能自摸，所以软屁胡点炮的用例都让胡家先开口（硬屁胡的用例开不开口都一样）。
 const openWinner = (changes = {}) => makePlayers({ 0: { open: true }, ...changes });
 
 const base = {
@@ -273,24 +273,32 @@ test('杠上开花算大胡：自身 ×4，乘上必然存在的那个杠 = ×8�
   assert.equal(nonEye, null, '杠上开花按大胡计分，但将牌仍须 2/5/8');
 });
 
-test('门前清屁胡不能捉铳，只能自摸；暗杠、皮杠、赖杠不算开口；七对和大胡不受限', () => {
+test('门前清软屁胡不能捉铳，只能自摸；硬屁胡门清也能捉铳；暗杠、皮杠、赖杠不算开口；七对和大胡不受限', () => {
   const payerOpen = { 1: { open: true, kongCount: 1 } };
-  // 门清：点炮不能胡，哪怕点炮者打点够 4
-  assert.equal(evalHand(pihu, { players: makePlayers(payerOpen) }), null);
+  // 门清软屁胡（赖子当五万做将）：点炮不能胡，哪怕点炮者打点够 4
+  assert.equal(evalHand(pihuOneJoker, { players: makePlayers(payerOpen) }), null);
   // 抢杠也是别人的牌，同样不行
-  assert.equal(evalHand(pihu, { robKong: true, players: makePlayers(payerOpen) }), null);
+  assert.equal(evalHand(pihuOneJoker, { robKong: true, players: makePlayers(payerOpen) }), null);
   // 手里有暗杠、皮杠、赖杠仍是门清
-  assert.equal(evalHand([0, 1, 2, 0, 1, 2, 18, 19, 20, 4, 4], {
+  assert.equal(evalHand([0, 1, 2, 0, 1, 2, 18, 19, 20, 4, 33], {
     melds: [{ kind: 'kong', tiles: [9, 9, 9, 9], open: false }],
     specialKongs: [{ kind: 'skin', tile: 31 }, { kind: 'joker', tile: 33 }],
     players: makePlayers(payerOpen),
   }), null);
-  // 同一手牌自摸可以胡
-  const tsumo = evalHand(pihu, { selfDraw: true, from: null, players: makePlayers({ 1: { open: true }, 2: { open: true }, 3: { open: true } }) });
+  // 同一手软屁胡自摸可以胡（三家都开口且有杠，每家 1 × 4 = 4）
+  const tsumo = evalHand(pihuOneJoker, { selfDraw: true, from: null,
+    players: makePlayers({ 1: { open: true, kongCount: 1 }, 2: { open: true, kongCount: 1 }, 3: { open: true, kongCount: 1 } }) });
   assert.ok(tsumo);
   assert.deepEqual(tsumo.payments, [0, 4, 4, 4]);
-  // 胡家开口后可以捉铳
-  assert.ok(evalHand(pihu, { players: openWinner(payerOpen) }));
+  // 软屁胡：胡家开口后可以捉铳
+  assert.ok(evalHand(pihuOneJoker, { players: openWinner(payerOpen) }));
+  // 硬屁胡门清也能捉铳：胡家 ×2，点炮者开口带杠 ×4，打点 8
+  const hardRon = evalHand(pihu, { players: makePlayers(payerOpen) });
+  assert.ok(hardRon, '硬屁胡门清可以捉铳');
+  assert.equal(hardRon.hard, true);
+  assert.deepEqual(hardRon.payments, [0, 8, 0, 0]);
+  // 硬屁胡捉铳照样要 4 点起胡：点炮者没开口没杠，只有 2 点，胡不了
+  assert.equal(evalHand(pihu, { players: makePlayers() }), null);
   // 七对、大胡门清也能捉铳
   assert.ok(evalHand([0, 0, 1, 1, 9, 9, 10, 10, 18, 18, 19, 19, 27, 27]));
   assert.ok(evalHand([0, 0, 0, 1, 1, 1, 2, 2, 2, 4, 4, 4, 7, 7]));
