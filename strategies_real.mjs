@@ -35,6 +35,14 @@ function bestShanten(counts, jokers, needGroups, opt = {}) {
   let best = shantenStandard(counts, jokers, needGroups, true);
   if (needGroups === 4) best = Math.min(best, shantenQidui(counts, jokers, needGroups) + qiduiPen);
   if (!opt.hasChi) best = Math.min(best, shantenPeng(counts, jokers, needGroups) + pengPen);
+  // 清一色路线（cleanPen 为数值时启用）：只数这一门的牌，别门和字牌都当废牌；清一色不限 2/5/8 将。
+  // cleanSuits 是已有副露还允许的花色（副露里有别门或字牌，那门就做不成）。
+  if (Number.isFinite(opt.cleanPen) && opt.cleanSuits) {
+    for (const s of opt.cleanSuits) {
+      const c = counts.map((v, t) => (t >= s * 9 && t < s * 9 + 9 ? v : 0));
+      best = Math.min(best, shantenStandard(c, jokers, needGroups, false) + opt.cleanPen);
+    }
+  }
   return best;
 }
 
@@ -65,6 +73,7 @@ const DEFAULTS = {
   voluntaryKongShanten: 1,   // 暗杠/补杠只在向听 <= 此值时才开
   jokerKongMin: 2,           // 手上赖子达到几张才开赖杠
   qiduiPen: 1.5,             // 七对路线的折价
+  cleanPen: null,            // 清一色路线的折价（null = 不走这条路；负数 = 愿意为它慢几步）
   pengPen: 1.0,              // 碰碰胡路线的折价
   tempoBonus: 0,             // 每偷到一个轮次，折算成多少向听的价值
   useEngineDiscard: false,   // 消融用：出牌改用引擎的 discardHeuristic
@@ -156,6 +165,8 @@ export function makePolicy(profile) {
     const opt = {
       qiduiPen: P.qiduiPen, pengPen: P.pengPen,
       hasChi: view.melds[player].some(m => m.kind === 'chi'),
+      cleanPen: P.cleanPen,
+      cleanSuits: [0, 1, 2].filter(s => view.melds[player].every(m => m.tiles.every(id => Math.floor(tileType(id) / 9) === s && tileType(id) < 27))),
     };
 
     // ---- 反应阶段：吃 / 碰 / 明杠 --------------------------------------
@@ -183,8 +194,10 @@ export function makePolicy(profile) {
         }
         if (!ok) continue;
         // 鸣牌后手上多一张待打，比较"打掉一张后"的向听才公平
-        const s = shantenAfterBestDiscard(after, jokers, needGroups - 1,
-          { ...opt, hasChi: opt.hasChi || a.kind === 'chi' });
+        const s = shantenAfterBestDiscard(after, jokers, needGroups - 1, {
+          ...opt, hasChi: opt.hasChi || a.kind === 'chi',
+          cleanSuits: opt.cleanSuits.filter(x => t < 27 && Math.floor(t / 9) === x),
+        });
         // 轮次剥夺：碰/杠会跳过点炮者与自己之间的所有人，他们本该摸的牌没了。
         // 吃只能吃上家，本来下一个就轮到自己，所以不偷任何轮次。
         const stolen = a.kind === 'chi' ? 0 : ((player - view.pending.from + 4) % 4) - 1;
