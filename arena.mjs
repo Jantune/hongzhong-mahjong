@@ -151,8 +151,14 @@ export function runBust({ lineup, strategies, blocks = 20, seedStart = 20000, ca
     if (b % shardCount !== shard) continue;
     const seed = seedStart + b * 1009;
     const local = {}; for (const n of names) local[n] = { pts: 0, rounds: 0, rankSum: 0, matches: 0, busted: 0, firsts: 0 };
+    // 阵容里有同名策略时（例如两家精算对两家激情），24 种排列里有重复的座次；
+    // 策略与发牌都是确定性的，重复的座次打出来一模一样，只算一次。
+    const seenSeats = new Set();
     for (const perm of PERMS) {
       const seatNames = [0, 1, 2, 3].map(s => lineup[perm[s]]);
+      const seatKey = seatNames.join('|');
+      if (seenSeats.has(seatKey)) continue;
+      seenSeats.add(seatKey);
       const policies = seatNames.map(n => strategies[n]);
       const s0 = startScore;
       let state = createGame({ cap, seed, dealer: 0, scores: [s0, s0, s0, s0], round: 1 });
