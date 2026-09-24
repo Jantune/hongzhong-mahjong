@@ -7,7 +7,6 @@
   <div class="brand"><span class="brand-mark" aria-hidden="true">中</span><div><h1>红中牌室 <span>七皮四赖</span></h1><p>一方牌桌，四人对局。</p></div></div>
   <nav class="toolbar" aria-label="牌局设置">
     <label class="control">封顶 <select id="cap" aria-label="封顶点数"><option value="50">50 点</option><option value="40">40 点</option><option value="30">30 点</option><option value="20">20 点</option><option value="10">10 点</option></select></label>
-    <label class="control speed-control">节奏 <select id="speed" aria-label="电脑行牌节奏"><option value="1">快局</option><option value="3" selected>从容</option><option value="5">慢局</option></select></label>
     <button id="ai-config" class="quiet-button" type="button">对手 <span id="ai-summary"></span></button>
     <label class="switch-control"><input id="advice-toggle" type="checkbox"><span class="switch-track" aria-hidden="true"></span><span>建议</span></label>
     <label class="switch-control"><input id="llm-toggle" type="checkbox"><span class="switch-track" aria-hidden="true"></span><span>大模型</span></label>
@@ -83,10 +82,11 @@
 <dialog id="ai-dialog" class="rules-drawer" aria-label="对手策略"><div class="drawer-card ai-card">
   <button id="ai-close" class="dialog-close" aria-label="关闭">×</button>
   <span class="eyebrow">每家单独设置</span>
-  <h2>三家对手用什么打法</h2>
-  <p class="drawer-lead">两种打法共用同一套向听与进张评估，差别只在<b>鸣不鸣、避不避炮</b>。都比引擎原来的默认 AI 强。</p>
+  <h2>三家对手的难度</h2>
+  <p class="drawer-lead">三档都以<b>精算</b>为底子（只求最快胡牌、不避炮）。<b>困难</b>就是精算；<b>激情</b>更爱做大胡——七对、碰碰胡、清一色，快听牌时还会留皮搏杠上开花，强度和困难差不多；<b>简单</b>常常没挑到进张最多的那张，强度约为困难的七成。你自己的托管固定用困难。</p>
+  <div id="ai-presets" class="ai-presets"><span>三家都设为</span><button type="button" data-ai-all="Easy">简单</button><button type="button" data-ai-all="Hard">困难</button><button type="button" data-ai-all="Passion">激情</button></div>
   <div id="ai-seats" class="ai-seats"></div>
-  <p class="dlg-note">复式对局实测（每小局净分，95% CI）：对三家引擎基线 精算 <b>+4.37</b> [+3.15, +5.92]、稳健 <b>+2.20</b> [+0.80, +3.83]；四家同桌 精算 <b>+0.74</b>、稳健 <b>+0.33</b>。<br>精算胡牌率 26.0%、进张更快；稳健放炮率 15.5%，比精算低 3 个百分点。三家混着配会更像真实牌桌。</p>
+  <p class="dlg-note">复式对局实测（新规则、50 封顶，对三家引擎基线的每小局净分）：困难 <b>+4.89</b>、激情 <b>+5.85</b>（两者差异不显著；激情的大胡多近一倍、杠上开花多一半）、简单 <b>+3.36</b>。三家可以混着配。</p>
   <div class="dlg-actions"><button id="ai-done" class="primary" type="button">好了</button></div>
 </div></dialog>
 <dialog id="sound-dialog" class="rules-drawer sound-dialog" aria-label="声音设置"><div class="drawer-card sound-card"><button id="sound-close" class="dialog-close" aria-label="关闭声音设置">×</button><span class="eyebrow">牌室声音 · 本机设置</span><h2>声音</h2>

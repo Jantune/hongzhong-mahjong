@@ -7,7 +7,7 @@ import {
   validateState,
 } from './game.mjs';
 
-import { makePolicy } from './strategies_real.mjs';
+import { makePolicy, PROFILES } from './strategies_real.mjs';
 import { advise, xiangtingText } from './advisor.mjs';
 import { PROVIDERS, DEFAULT_PROVIDER, providerOf, ask, probeProxy, testConnection, describeTarget, endpointPreview } from './llm.mjs';
 import { buildSystem, buildQuestion, DEFAULT_QUESTION, plainText } from './coach.mjs';
@@ -15,26 +15,24 @@ import { buildSystem, buildQuestion, DEFAULT_QUESTION, plainText } from './coach
 import { tileMarkup, TILE_NAMES } from './tiles.mjs';
 import { audio } from './audio.mjs';
 
-// 电脑打法。每个座位单独设，存在 localStorage 的 hz.ai.seat.<座位号> 里。
-//
-// 只留这两档。两者共用同一套向听—进张—安全度评估，差别只在鸣牌闸门与避炮，
-// 就像真实牌手之间的风格差异；引擎原来的默认 AI（aiChoose）和纯速度流都被淘汰了。
-//
-// 实测强度（复式对局，每小局净分，95% CI，方法与数据见 arena.mjs）。
-// 这组数是**加入王牌之后**重测的——可摸牌 82→69，巡数变少让推牌的边际收益下降、
-// 放炮的代价相对上升，排名因此变化，加王牌前的旧数字已作废：
-//
-//                        对 3 家引擎基线        强手同桌
-//   稳健 Guarded         +2.52 [+0.92, +4.15]   +1.56 [+1.06, +2.05]  ← 强手桌第一
-//   精算 Efficient       +3.27 [+1.59, +4.97]   +0.78 [+0.33, +1.24]
-//   （引擎基线 aiChoose） 0（基准点）             -1.64 [-2.32, -0.97]
-//   （已淘汰的纯速度流）  -0.15 [-1.60, +1.39]   -0.70 [-1.23, -0.17]
+// 电脑对手分三档，每家单独设，存在 localStorage 的 hz.ai.seat.<座位号> 里。
+// 三档共用精算的向听—进张评估（只求最快胡牌、不避炮），实测它是目前最强的打法：
+//   困难 = 精算原样；
+//   激情 = 精算 + 大胡路线放宽（清一色愿慢 1 步、碰碰胡不折价、七对折价 0.5），
+//          再加上最后一张皮子在 1 向听时才杠、搏杠上开花；强度与困难相当，大胡明显更多；
+//   简单 = 精算 + 温和失误：约 45% 的出牌在「打完向听相同」的牌里改打次优那张
+//          （少进几张牌，但不会为失误退一步），强度约为困难的七成。
+// 标定数据见 README 4.5「三档难度」。你自己的托管固定用困难（精算），不给选。
 const AI_POLICIES = {
-  Guarded: { label: '稳健', policy: makePolicy('Guarded'), note: '鸣牌要有收益才鸣，残局避炮' },
-  Efficient: { label: '精算', policy: makePolicy('Efficient'), note: '同样的鸣牌闸门，但不避炮，进张更快' },
+  Easy: { label: '简单', policy: makePolicy({ ...PROFILES.Efficient, blunder: 0.45, blunderSameShanten: true }), note: '精算的底子，但常常没挑到进张最多的那张' },
+  Hard: { label: '困难', policy: makePolicy('Efficient'), note: '精算：只求最快胡牌，不避炮' },
+  Passion: { label: '激情', policy: makePolicy({ ...PROFILES.Efficient, cleanPen: -1, pengPen: 0, qiduiPen: 0.5, holdLastSkin: true, holdSkinMaxXt: 1 }), note: '更爱做大胡：七对、碰碰胡、清一色，快听牌时留皮搏杠上开花；强度与困难相当' },
 };
-const DEFAULT_AI = 'Guarded';
-const AI_SEATS = [0, 1, 2, 3];   // 0 是你自己，只在开托管时用得上
+const DEFAULT_AI = 'Hard';
+const HOSTED_AI = 'Hard';        // 托管固定用困难
+const AI_SEATS = [1, 2, 3];      // 只有三家对手可选
+// 旧版存的是策略名（稳健 / 精算），换成新档位
+const LEGACY_AI = { Efficient: 'Hard', Guarded: 'Hard' };
 
 const SEATS = [
   { name: '南家', place: 'south', short: '南' },
@@ -51,7 +49,7 @@ const tableRoot = $('table') || document.querySelector('.table');
 const resultRoot = $('result');
 const statusRoot = $('status');
 const logRoot = $('log');
-const speedRoot = $('speed');
+
 const capRoot = $('cap');
 const rulesRoot = $('rules');
 const drawerRoot = $('drawer');
@@ -230,7 +228,9 @@ async function sendQuestion() {
 // 每家单独设策略。策略是纯函数（只读 state），中途换人不用重开牌局，下一次决策即生效。
 const AI_SEAT_KEY = (p) => `hz.ai.seat.${p}`;
 function aiNameOf(p) {
-  const v = store.get(AI_SEAT_KEY(p), DEFAULT_AI);
+  if (p === 0) return HOSTED_AI;
+  const raw = store.get(AI_SEAT_KEY(p), DEFAULT_AI);
+  const v = LEGACY_AI[raw] || raw;
   return Object.hasOwn(AI_POLICIES, v) ? v : DEFAULT_AI;
 }
 const aiPolicy = (p) => AI_POLICIES[aiNameOf(p)].policy;
@@ -342,6 +342,8 @@ function schedule(fn, delay = 500) {
 // 桌上什么都不会发生。过只给一个很短的停顿，把预算留给真正有动作的那一步。
 const CALL_KINDS = new Set(['chi', 'pong', 'exposedKong', 'skinKong', 'jokerKong', 'concealedKong', 'addedKong']);
 const PACE = { pass: 90, call: 300, discard: 420 };
+// 节奏固定为「从容」（原来的快局 1 / 从容 3 / 慢局 5 三档已取消）
+const PACE_SPEED = 3;
 
 // 有人声时，出牌和吃碰杠要等上一段播报念完再动，否则下一家的落牌会把牌名打断。
 // "过"桌上没有动静，不用等；等到真正出声的那一手自然会等。
@@ -353,7 +355,7 @@ function pacedDelay(action) {
 }
 
 function thinkDelay(action) {
-  const speed = Number(speedRoot?.value || 3);
+  const speed = PACE_SPEED;
   const kind = !action ? 'discard' : action.kind === 'pass' ? 'pass' : CALL_KINDS.has(action.kind) ? 'call' : 'discard';
   let ms = PACE[kind] * speed;
   if (kind === 'pass') {
@@ -475,7 +477,7 @@ function renderSeat(state, p) {
     `<span class="seat-name">${seat.name}</span>`,
     p === state.dealer ? '<span class="dealer-badge">庄</span>' : '',
     p === 0
-      ? `<span class="human-badge">${autoplay ? `托管 · ${AI_POLICIES[aiNameOf(0)].label}` : '你'}</span>`
+      ? `<span class="human-badge">${autoplay ? `托管 · 精算` : '你'}</span>`
       : `<span class="ai-badge">${AI_POLICIES[aiNameOf(p)].label}</span>`,
     seatStatus(state, p) ? `<span class="turn-badge">${seatStatus(state, p)}</span>` : '',
   ].join('');
@@ -1355,7 +1357,7 @@ function renderAiSeats() {
   if (box) {
     box.innerHTML = AI_SEATS.map((p) => {
       const cur = aiNameOf(p);
-      const who = p === 0 ? '南家（你）· 仅托管时生效' : SEATS[p].name;
+      const who = SEATS[p].name;
       const opts = Object.entries(AI_POLICIES)
         .map(([id, m]) => `<option value="${id}"${id === cur ? ' selected' : ''}>${m.label}</option>`).join('');
       return `<label class="ai-seat-row"><span class="ai-seat-name">${who}</span>`
@@ -1396,6 +1398,15 @@ document.querySelectorAll('[data-preview-seat]').forEach(button => button.addEve
   const wait = audio.voiceRemainingMs();
   window.setTimeout(() => audio.playVoice(seat, 't2', 1), (wait || 600) + 120);
 }));
+// 换打法后作废已排队的那一步，让新打法立刻接手
+function aiChanged() {
+  const summary = $('ai-summary');
+  if (summary) summary.textContent = [1, 2, 3].map((p) => AI_POLICIES[aiNameOf(p)].label).join('·');
+  generation += 1;
+  clearTimer();
+  render();
+  continueGame();
+}
 $('ai-seats')?.addEventListener('change', (event) => {
   const sel = event.target.closest('[data-ai-seat]');
   if (!sel) return;
@@ -1403,13 +1414,15 @@ $('ai-seats')?.addEventListener('change', (event) => {
   // 原地改这一行的说明就够了——整段重建会把用户刚点的那个 select 换掉、丢掉焦点
   const note = sel.parentElement?.querySelector('em');
   if (note) note.textContent = AI_POLICIES[sel.value].note;
-  const summary = $('ai-summary');
-  if (summary) summary.textContent = [1, 2, 3].map((p) => AI_POLICIES[aiNameOf(p)].label).join('·');
-  // 作废已排队的那一步，让新打法立刻接手
-  generation += 1;
-  clearTimer();
-  render();
-  continueGame();
+  aiChanged();
+});
+// 一键把三家设成同一档
+$('ai-presets')?.addEventListener('click', (event) => {
+  const btn = event.target.closest('[data-ai-all]');
+  if (!btn) return;
+  for (const p of AI_SEATS) store.set(AI_SEAT_KEY(p), btn.dataset.aiAll);
+  renderAiSeats();
+  aiChanged();
 });
 
 rulesRoot?.addEventListener('click', () => drawerRoot.showModal());

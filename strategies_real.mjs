@@ -100,6 +100,11 @@ const DEFAULTS = {
   // 保命模式（见 effectiveProfile）：null = 不启用
   surviveBelow: null,
   surviveMode: { defense: 2.0, foldShanten: 1, foldThreat: 2.0, callNeedsGain: 2, voluntaryKongShanten: 0 },
+  // 失误率（简单模式用）：出牌时以这个概率不打最优那张、改打次优那张。
+  // 用局面哈希而不是 Math.random 决定，同一局面总是同样的选择，复式对局的配对才成立。
+  blunder: 0,
+  // true：失误只在「打完向听相同」的牌里挑次优（少进几张牌），不会为失误退一步
+  blunderSameShanten: false,
 };
 
 export const PROFILES = {
@@ -292,6 +297,7 @@ function pickDiscard(view, player, discards, counts, jokers, needGroups, cur, P,
 
   const minS = Math.min(...rough.map(r => r.s));
   let best = null, bestScore = -Infinity;
+  const scored = [];
   for (const r of rough) {
     // 进张计算最贵，只给还有竞争力的候选算
     let uk = { kinds: 0, tiles: 0 };
@@ -313,10 +319,29 @@ function pickDiscard(view, player, discards, counts, jokers, needGroups, cur, P,
     const score = -r.s * SHANTEN_WEIGHT + (uk.tiles * 6 + uk.kinds * 2) * P.ukWeight
       + shape * P.shapeW - danger * defWeight - jokerPenalty;
     // 同分裁决（tieKeep）：先打留着最没用的牌（字牌、幺九先走，2/5/8 最后），否则按手牌顺序
+    scored.push({ a: r.a, score, s: r.s });
     const tie = P.tieKeep && best && Math.abs(score - bestScore) <= 1e-6 && keepValue(r.t) < keepValue(tileType(best.tile));
     if (score > bestScore + 1e-6 || tie || (!P.tieKeep && score > bestScore)) { bestScore = Math.max(score, bestScore); best = r.a; }
   }
+  if (P.blunder > 0 && scored.length > 1 && situationHash(view, player) < P.blunder) {
+    const bestS = scored.find(x => x.a === best)?.s;
+    const second = scored.filter(x => x.a !== best && (!P.blunderSameShanten || x.s === bestS))
+      .sort((x, y) => y.score - x.score)[0];
+    if (second) return second.a;
+  }
   return best || discards[0];
+}
+
+/** 局面的确定性伪随机数 [0, 1)：手牌、全场弃牌数、座位。 */
+function situationHash(view, player) {
+  let h = 2166136261 ^ player;
+  const mix = (x) => { h ^= x; h = Math.imul(h, 16777619) >>> 0; };
+  for (const id of [...view.hands[player]].sort((a, b) => a - b)) mix(id + 1);
+  mix(view.discards.reduce((n, d) => n + d.length, 0) + 1000);
+  mix(view.round ?? 0);
+  // murmur3 的 fmix32 收尾，把低位的差异扩散到高位
+  h ^= h >>> 16; h = Math.imul(h, 0x85ebca6b); h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35); h ^= h >>> 16;
+  return (h >>> 0) / 4294967296;   // ^ 的结果是有符号数，不转回无符号会有一半是负数
 }
 
 export const REAL_STRATEGIES = {
@@ -328,4 +353,4 @@ export const REAL_STRATEGIES = {
   Tempo: makePolicy('Tempo'),
 };
 
-export { bestShanten, shantenAfterBestDiscard, ownLiability };
+export { bestShanten, shantenAfterBestDiscard, ownLiability, situationHash };
