@@ -433,6 +433,12 @@ function pendingSource(state) {
   return state.turn;
 }
 
+/** 别人出牌后轮到你回应，而且真有得选（能吃 / 碰 / 杠 / 胡）。只有「过」时会自动替你过，界面上不该闪一下。 */
+function humanMustDecide(state) {
+  if (!state.pending || pendingSeat(state) !== 0) return false;
+  return playerActions(state).some((a) => a.kind !== 'pass');
+}
+
 function pendingSeat(state) {
   if (!state.pending) return null;
   const source = pendingSource(state);
@@ -557,7 +563,7 @@ function renderCenter(state) {
   if (status) {
     let text = '';
     if (state.phase === 'done') text = state.result?.type === 'draw' ? '荒庄' : `${seatName(state.result?.winner)} 和牌`;
-    else if (state.pending) text = pendingSeat(state) === 0 ? '等待你的选择' : '各家回应中';
+    else if (state.pending) text = humanMustDecide(state) ? '等待你的选择' : '各家回应中';
     else if (state.turn === 0) text = autoplay ? '电脑代你行牌' : '轮到你出牌';
     else text = `${seatName(state.turn)}正在思考`;
     status.textContent = text;
@@ -567,7 +573,9 @@ function renderCenter(state) {
 function renderActions(state, actions) {
   if (!actionRoot) return;
   const pendingHuman = !!state.pending && pendingSeat(state) === 0;
-  const nonDiscard = actions.filter((a) => a.kind !== 'discard');
+  // 只有「过」可选时不画按钮：continueGame 会在 0.2 秒后自动替你过
+  const onlyPass = pendingHuman && !autoplay && !humanMustDecide(state);
+  const nonDiscard = actions.filter((a) => a.kind !== 'discard' && !(onlyPass && a.kind === 'pass'));
   const discard = actions.filter((a) => a.kind === 'discard');
   const chiOptions = nonDiscard.filter((a) => a.kind === 'chi');
   const buttons = [];
@@ -629,7 +637,7 @@ function renderAdvice(state) {
   if (!adviceRoot) return;
   if (!adviceToggle?.checked || state.phase === 'done') return hideAdvice();
   const seat = pendingSeat(state);
-  const ourDecision = seat === 0 || (seat === null && !state.pending && state.turn === 0);
+  const ourDecision = (seat === 0 && humanMustDecide(state)) || (seat === null && !state.pending && state.turn === 0);
   if (!ourDecision) return hideAdvice();
 
   let adv = null;
