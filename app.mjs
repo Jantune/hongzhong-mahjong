@@ -850,7 +850,7 @@ function renderCallFlash(state) {
 let winTimer = null;
 let countTimer = null;
 
-// 锦标赛模式（默认关）：每人按本金起（默认 300，可在工具栏改），任意一家低于 0 本场结束并排名。
+// 锦标赛模式（默认开）：每人按本金起（默认 300，可在工具栏改），任意一家低于 0 本场结束并排名。
 // 关闭时和以前一样，分数从 0 起、一直打下去。开关只在开新的一场时生效，
 // tournamentActive 记录的是"当前这一场"按哪种赛制开的。
 const DEFAULT_START = 300;
@@ -865,7 +865,7 @@ function sanitizeStart(v, fallback = DEFAULT_START) {
   return String(v).trim() !== '' && Number.isFinite(n) && n >= START_MIN && n <= START_MAX ? n : fallback;
 }
 const startWanted = () => sanitizeStart(store.get(START_KEY, String(DEFAULT_START)));
-const tournamentWanted = () => store.get(TOURNAMENT_KEY, '0') === '1';
+const tournamentWanted = () => store.get(TOURNAMENT_KEY, '1') === '1';
 const matchOver = (state) => tournamentActive && !!state?.result && state.scores.some((s) => s < 0);
 
 /**
@@ -1250,7 +1250,52 @@ function onClick(event) {
 
 $('win-banner')?.addEventListener('click', () => closeWinBanner(true));
 document.addEventListener('click', onClick);
-$('restart')?.addEventListener('click', restart);
+$('restart')?.addEventListener('click', () => confirmRestart());
+
+// ---- 二次确认 ----
+const confirmDialog = $('confirm-dialog');
+/** 弹出确认框，确定返回 true；取消、Esc、点框外都算 false。
+ *  结果在按钮点击时直接给出，不等 dialog 的 close 事件——页面不可见时浏览器会推迟那个事件。 */
+let confirmResolve = null;
+function settleConfirm(value) {
+  const resolve = confirmResolve;
+  confirmResolve = null;
+  if (confirmDialog?.open) confirmDialog.close();
+  resolve?.(value);
+}
+function askConfirm({ title, message, ok = '确定' }) {
+  if (!confirmDialog) return Promise.resolve(true);
+  settleConfirm(false);   // 上一个还没答的按取消处理
+  return new Promise((resolve) => {
+    $('confirm-title').textContent = title;
+    $('confirm-msg').textContent = message;
+    $('confirm-ok').textContent = ok;
+    confirmResolve = resolve;
+    confirmDialog.showModal();
+  });
+}
+$('confirm-ok')?.addEventListener('click', () => settleConfirm(true));
+$('confirm-cancel')?.addEventListener('click', () => settleConfirm(false));
+confirmDialog?.addEventListener('click', (event) => { if (event.target === confirmDialog) settleConfirm(false); });
+confirmDialog?.addEventListener('close', () => settleConfirm(false));   // Esc
+/** 锦标赛这一场已经开打、还没分出结果 */
+function matchInProgress() {
+  if (!tournamentActive || !game || matchOver(game)) return false;
+  const fresh = game.round === 1 && !game.result && game.discards.every((d) => d.length === 0);
+  return !fresh;
+}
+/** 放弃本场前的确认：锦标赛进行中才问，否则直接放行。newStart 是重开后的本金。 */
+async function confirmAbandon(newStart = startWanted()) {
+  if (!matchInProgress()) return true;
+  return askConfirm({
+    title: '放弃本场锦标赛？',
+    message: `本场还没结束（第 ${game.round} 局，你现在 ${game.scores[0]} 分）。重新开始会放弃这一场，四家都按 ${newStart} 点重新开局。`,
+    ok: '放弃本场，重新开始',
+  });
+}
+async function confirmRestart() {
+  if (await confirmAbandon()) restart();
+}
 
 // ---- 锦标赛开关 ----
 const tourToggle = $('tournament-toggle');
@@ -1286,19 +1331,34 @@ if (tourPoints) {
   tourPoints.value = String(startWanted());
   tourPoints.addEventListener('change', () => {
     // 输错（空、非数字、超出 10–100000）就退回原来的值，什么都不改
-    const v = sanitizeStart(tourPoints.value, startWanted());
+    const old = startWanted();
+    const v = sanitizeStart(tourPoints.value, old);
     tourPoints.value = String(v);
-    if (v === startWanted()) return;
-    store.set(START_KEY, String(v));
-    if (tourToggle?.checked) applyTourChange(`<b>锦标赛本金</b>：每人 ${v} 点起。`);
+    if (v === old) return;
+    if (!tourToggle?.checked) { store.set(START_KEY, String(v)); return; }
+    // 改本金就开新的一场；本场还在打时先确认，取消则退回原值
+    confirmAbandon(v).then((ok) => {
+      if (!ok) { tourPoints.value = String(old); return; }
+      store.set(START_KEY, String(v));
+      restart();
+      showTourHint(`<b>锦标赛本金</b>：每人 ${v} 点起，已开新的一场。`);
+    });
   });
 }
 $('tour-hint')?.addEventListener('click', (event) => {
   if (!event.target.closest('[data-tour-now]')) return;
   $('tour-hint').hidden = true;
-  restart();
+  confirmRestart();
 });
-capRoot?.addEventListener('change', restart);
+// 封顶热更新：当前这一局立即按新封顶计分，之后的局沿用（nextRound 会带上 rules.cap）
+capRoot?.addEventListener('change', () => {
+  if (!game) return;
+  game.rules.cap = Number(capRoot.value || 50);
+  generation += 1;
+  clearTimer();
+  render();
+  continueGame();
+});
 // ---- 建议开关的四位数密码 ----
 // 静态网页防不住懂前端的人（改一行代码就能绕过），这只是"防君子"：
 // 源码里只存加盐哈希、看不到明文；输对一次后本标签页内记住，刷新或关掉标签页要重输。
@@ -1464,7 +1524,7 @@ for (const dialog of [drawerRoot, $('result-dialog'), llmDialog, soundDialog]) {
   });
 }
 document.addEventListener('keydown', event => {
-  if (drawerRoot.open || $('result-dialog').open || $('ai-dialog')?.open || llmDialog.open || soundDialog?.open || $('match-dialog')?.open || $('pin-dialog')?.open || event.target.closest('input,textarea,select')) return;
+  if (drawerRoot.open || $('result-dialog').open || $('ai-dialog')?.open || llmDialog.open || soundDialog?.open || $('match-dialog')?.open || $('pin-dialog')?.open || $('confirm-dialog')?.open || event.target.closest('input,textarea,select')) return;
   if (event.key === 'Escape') { selectedTile = null; render(); }
   if (event.key === 'Enter' && selectedTile !== null && !event.target.closest('input,select,button:not(.tile-button)')) {
     event.preventDefault();

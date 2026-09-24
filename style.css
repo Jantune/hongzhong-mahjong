@@ -367,3 +367,4 @@ dialog{color:var(--ink);border:1px solid #dce0d1;background:var(--surface);borde
 .tour-points[hidden]{display:none}
 .tour-points input{width:64px;padding:3px 6px;font:inherit;font-size:12px;font-variant-numeric:tabular-nums;color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:6px}
 .tour-points input:focus{outline:2px solid var(--green);outline-offset:1px}
+.confirm-msg{margin:14px 0 0;font-size:13px;line-height:1.8;color:var(--ink);text-align:left}
