@@ -32,7 +32,7 @@
 
 ```powershell
 npm start          # = node server.mjs，访问 http://127.0.0.1:4173
-npm test           # = node --test，45 项
+npm test           # = node --test，46 项
 npm run build      # = node build.mjs，生成 dist/hongzhong-mahjong.html
 ```
 
