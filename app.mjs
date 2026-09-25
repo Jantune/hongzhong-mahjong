@@ -19,12 +19,11 @@ import { audio } from './audio.mjs';
 // 三档都以精算的向听—进张评估为底子（只求最快胡牌、不避炮）：
 //   困难 = 精算 + 碰碰胡不折价、七对折价 0.5（锦标赛里对精算名次提前约 0.2，见 README 4.5）；
 //   激情 = 困难 + 最后一张皮子在 1 向听时才杠、搏杠上开花（杠开多六成，强度与困难相当）；
-//   简单 = 困难 + 温和失误：约 55% 的出牌在「打完向听相同」的牌里改打次优那张
-//          （少进几张牌，但不会为失误退一步），强度约为困难的七成。
+//   简单 = 纯精算（不加大胡路线），与托管同一套打法。
 // 你自己的托管固定用纯精算，不给选。
 const HARD_PROFILE = PROFILES.Hard;
 const AI_POLICIES = {
-  Easy: { label: '简单', policy: makePolicy({ ...HARD_PROFILE, blunder: 0.55, blunderSameShanten: true }) },
+  Easy: { label: '简单', policy: makePolicy('Efficient') },
   Hard: { label: '困难', policy: makePolicy(HARD_PROFILE) },
   Passion: { label: '激情', policy: makePolicy({ ...HARD_PROFILE, holdLastSkin: true, holdSkinMaxXt: 1 }) },
 };
