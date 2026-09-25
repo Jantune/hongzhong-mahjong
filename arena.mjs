@@ -35,7 +35,7 @@ function emptyStat(name) {
     gangKaiGain: 0,           // 杠上开花收到的总分
     ronGain: 0, ronWins: 0,   // 点炮胡的次数与总分
     tsumoGain: 0,             // 普通自摸（不含杠上开花）的总分
-    bigWins: 0, bigGain: 0,   // 大胡（碰碰胡、清一色等，含杠上开花）
+    bigWins: 0, bigGain: 0,   // 大胡（碰碰胡、清一色等，含七对、杠上开花；2026-09-25 之前的结果不含七对）
     cleanWins: 0, pengWins: 0, pairWins: 0,   // 清一色 / 碰碰胡 / 七对 次数
   };
 }
@@ -91,6 +91,9 @@ function record(stats, seatNames, state, before) {
   if (labels.includes('清一色')) w.cleanWins += 1;
   if (labels.includes('碰碰胡')) w.pengWins += 1;
   if (res.score?.sevenPairs) w.pairWins += 1;
+  // 牌型组合计数（键如 'L:碰碰胡+清一色'），用来看各种大胡分别胡了多少次
+  const combo = 'L:' + labels.join('+');
+  w[combo] = (w[combo] || 0) + 1;
   for (let p = 0; p < 4; p += 1) {
     if (p === res.winner) continue;
     const pay = res.score?.payments?.[p] || 0;

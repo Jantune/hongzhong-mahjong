@@ -214,7 +214,7 @@ function settle({ W, big = false, sevenPairs = false, winner = 0, selfDraw = fal
   const payers = payAll
     ? [0, 1, 2, 3].filter(p => p !== winner)
     : (Number.isInteger(from) && from >= 0 && from < 4 && from !== winner ? [from] : []);
-  // 金顶：只有三家付款的局面（自摸、七对、大胡）且胡家自身倍数达到封顶才算，
+  // 金顶：只有三家付款的局面（自摸、大胡含七对）且胡家自身倍数达到封顶才算，
   // 此时未开口的付款者在顶外另付半顶。点炮屁胡只有点炮者一家付，倍数再高也不是金顶。
   const goldTop = payAll && W >= C;
   for (const p of payers) {
@@ -328,14 +328,15 @@ function evaluateHand(input = {}) {
         labels.push('杠上开花');
       }
 
-      const big = labels.some(name => DAHU_NAMES.has(name));
+      // 七对也算大胡，只是倍数 ×4（豪华七对 ×8）：同样三家付、不限将和赖子、门清能捉铳。
+      const big = mode.sevenPairs || labels.some(name => DAHU_NAMES.has(name));
       // 屁胡最多一张赖子当万能牌：手持两张及以上时，其余的赖子必须当它本身的牌用
       // （usedWild 之外的赖子已经按原牌留在 natural 里参与拆牌），这样组得成就能胡。
-      // 两张都当万能牌的屁胡不能胡，胡家自身倍数到顶也不解除。七对与大胡（含杠上开花）不受限。
-      if (!big && !mode.sevenPairs && usedWild > 1) continue;
+      // 两张都当万能牌的屁胡不能胡，胡家自身倍数到顶也不解除。大胡（含七对、杠上开花）不受限。
+      if (!big && usedWild > 1) continue;
       // 门前清的软屁胡（用了赖子；没吃、没碰、没明杠——暗杠、皮杠、赖杠不算开口）不能捉铳，只能自摸。
-      // 硬屁胡门清也能捉铳；七对、大胡不受此限。4 点起胡照常要满足。
-      if (!big && !mode.sevenPairs && !hard && !selfDraw && !players[winner]?.open) continue;
+      // 硬屁胡门清也能捉铳；大胡（含七对）不受此限。4 点起胡照常要满足。
+      if (!big && !hard && !selfDraw && !players[winner]?.open) continue;
 
       const payment = settle({ W, big, sevenPairs: mode.sevenPairs, winner, selfDraw, from, players, cap });
       // A legal win must have at least one actual payer reaching four.

@@ -136,6 +136,7 @@ test('ordinary soft七对 is x4 and point炮 pays all three', () => {
   assert.deepEqual(r.labels, ['七对']);
   assert.equal(r.W, 4);
   assert.equal(r.hard, false);
+  assert.equal(r.big, true, '七对算大胡，只是倍数 ×4');
   assert.deepEqual(r.payments, [0, 4, 4, 4]);
 });
 

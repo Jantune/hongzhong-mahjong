@@ -918,9 +918,9 @@ const matchOver = (state) => tournamentActive && !!state?.result && state.scores
 
 /**
  * 庆祝分档：
- *   gold —— 金顶：三家付款的局面（自摸、七对、大胡）且胡家自身倍数达到封顶，
+ *   gold —— 金顶：三家付款的局面（自摸、大胡含七对）且胡家自身倍数达到封顶，
  *           未开口的付款者另付半顶。与 scoring.mjs 的 settle 同一条件。
- *   big  —— 大胡，或本局总收入 ≥ max(封顶, 30) 点
+ *   big  —— 大胡（含七对），或本局总收入 ≥ max(封顶, 30) 点
  *   normal
  */
 const bigTotal = (cap) => Math.max(cap, 30);
