@@ -57,8 +57,17 @@ function bestShanten(counts, jokers, needGroups, opt = {}) {
       best = Math.min(best, shantenStandard(c, jokers, needGroups, false) + opt.cleanPen);
     }
   }
+  // 将一色路线（jiangPen 为数值时启用）：乱将不看牌型，差几张 2/5/8 就是几步；赖子算 2/5/8。
+  // jiangOK = 副露全是 2/5/8（吃过就做不成）。
+  if (Number.isFinite(opt.jiangPen) && opt.jiangOK) {
+    let have = jokers;
+    for (const t of JIANG_TYPES) have += counts[t];
+    best = Math.min(best, needGroups * 3 + 2 - have + opt.jiangPen);
+  }
   return best;
 }
+const JIANG_TYPES = [1, 4, 7, 10, 13, 16, 19, 22, 25];
+const isJiang = (t) => t < 27 && t % 9 % 3 === 1;
 
 /** 14 张形态下，打掉一张之后能达到的最好向听。 */
 function shantenAfterBestDiscard(counts, jokers, needGroups, opt) {
@@ -94,6 +103,7 @@ const DEFAULTS = {
   qiduiPen: 1.5,             // 七对路线的折价
   cleanPen: null,            // 清一色路线的折价（null = 不走这条路；负数 = 愿意为它慢几步）
   pengPen: 1.0,              // 碰碰胡路线的折价
+  jiangPen: null,            // 将一色（乱将）路线的折价（null = 不走这条路）
   tempoBonus: 0,             // 每偷到一个轮次，折算成多少向听的价值
   useEngineDiscard: false,   // 消融用：出牌改用引擎的 discardHeuristic
   pongW: 0.8,                // 可碰的有效牌：一个对家的弃牌折算成多少次自摸机会
@@ -195,6 +205,8 @@ export function makePolicy(profile) {
       qiduiPen: P.qiduiPen, pengPen: P.pengPen, jokerType: view.joker,
       hasChi: view.melds[player].some(m => m.kind === 'chi'),
       cleanPen: P.cleanPen,
+      jiangPen: P.jiangPen,
+      jiangOK: view.melds[player].every(m => m.tiles.every(id => isJiang(tileType(id)))),
       cleanSuits: [0, 1, 2].filter(s => view.melds[player].every(m => m.tiles.every(id => Math.floor(tileType(id) / 9) === s && tileType(id) < 27))),
     };
 
@@ -225,6 +237,7 @@ export function makePolicy(profile) {
         // 鸣牌后手上多一张待打，比较"打掉一张后"的向听才公平
         const s = shantenAfterBestDiscard(after, jokers, needGroups - 1, {
           ...opt, hasChi: opt.hasChi || a.kind === 'chi',
+          jiangOK: opt.jiangOK && a.kind !== 'chi' && isJiang(t),
           cleanSuits: opt.cleanSuits.filter(x => t < 27 && Math.floor(t / 9) === x),
         });
         // 轮次剥夺：碰/杠会跳过点炮者与自己之间的所有人，他们本该摸的牌没了。

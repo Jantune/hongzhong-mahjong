@@ -185,6 +185,14 @@ function solveStandard(counts, jokers, groupsNeeded, mode) {
   return dfs(counts, jokers, groupsNeeded, true);
 }
 
+/* 乱将：将一色不看牌型，手牌（连同副露，副露由 groupsOK 检查）全是 2/5/8 就能胡。
+ * 当万能牌用的赖子可以当任意一张 2/5/8。 */
+function solveLuanJiang(counts, jokers, groupsNeeded, mode) {
+  if (counts.reduce((a, b) => a + b, 0) + jokers !== groupsNeeded * 3 + 2) return false;
+  for (let t = 0; t < TILE_COUNT; t++) if (counts[t] && !tileAllowed(t, mode)) return false;
+  return true;
+}
+
 function solvePairs(counts, jokers, mode) {
   if (counts.reduce((a, b) => a + b, 0) + jokers !== 14) return null;
   let odd = 0;
@@ -287,9 +295,12 @@ function evaluateHand(input = {}) {
     for (let usedWild = 0; usedWild <= physicalJokers; usedWild++) {
       const natural = makeCountsForJokerUse(counts, joker, usedWild);
       if (!natural) continue;
+      // 将一色是乱将，不要牌型；和碰碰胡叠加时（pong 模式）才要求成刻子
       const solution = mode.sevenPairs
         ? solvePairs(natural, usedWild, mode)
-        : solveStandard(natural, usedWild, groupsNeeded, mode);
+        : mode.general && !mode.pong
+          ? solveLuanJiang(natural, usedWild, groupsNeeded, mode)
+          : solveStandard(natural, usedWild, groupsNeeded, mode);
       if (!solution) continue;
 
       const labels = [];

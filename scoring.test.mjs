@@ -130,6 +130,32 @@ test('hard restoration: joker used as its own tile is hard胡', () => {
   assert.equal(r.hard, true);
 });
 
+test('将一色 is 乱将: any fourteen 2/5/8 tiles win, no shape needed', () => {
+  // 二万 二万 五万 八万 八万 二条 五条 五条 八条 二筒 五筒 五筒 八筒 八筒：凑不成四组一将
+  const luan = [1, 1, 4, 7, 7, 10, 13, 13, 16, 19, 22, 22, 25, 25];
+  const r = evalHand(luan);
+  assert.ok(r);
+  assert.deepEqual(r.labels, ['将一色']);
+  assert.equal(r.big, true);
+  assert.equal(r.W, 16, '将一色 ×8，硬胡 ×2');
+  assert.deepEqual(r.payments, [0, 16, 16, 16]);
+  // 赖子当万能牌补一张 2/5/8 也行（软胡）
+  const soft = evalHand([1, 1, 4, 7, 7, 10, 13, 13, 16, 19, 22, 22, 25, 33]);
+  assert.ok(soft);
+  assert.deepEqual(soft.labels, ['将一色']);
+  assert.equal(soft.W, 8);
+  // 混进一张不是 2/5/8 的牌就不行
+  assert.equal(evalHand([1, 1, 4, 7, 7, 10, 13, 13, 16, 19, 22, 22, 25, 26]), null);
+  // 副露也得全是 2/5/8；吃（顺子里必有别的点数）就做不成
+  const pongMeld = [{ kind: 'pong', tiles: [4, 4, 4], open: true }];
+  const withPong = evalHand([1, 1, 7, 7, 10, 13, 13, 16, 19, 22, 25], { melds: pongMeld });
+  assert.ok(withPong);
+  assert.ok(withPong.labels.includes('将一色'));
+  const chiMeld = [{ kind: 'chi', tiles: [3, 4, 5], open: true }];
+  const withChi = evalHand([1, 1, 7, 7, 10, 13, 13, 16, 19, 22, 25], { melds: chiMeld, players: openWinner() });
+  assert.ok(!withChi || !withChi.labels.includes('将一色'));
+});
+
 test('ordinary soft七对 is x4 and point炮 pays all three', () => {
   const r = evalHand([0, 0, 1, 1, 9, 9, 10, 10, 18, 18, 19, 19, 27, 33]);
   assert.ok(r);
