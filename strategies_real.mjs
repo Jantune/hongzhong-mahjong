@@ -21,6 +21,20 @@ import {
 
 
 /**
+ * 屁胡路线的向听。屁胡最多一张赖子当万能牌，多出的赖子只能当它本身的牌用，
+ * 所以两张及以上时不能把赖子全当万能牌数（那样会把胡不了的屁胡算成听牌）。
+ * jokerType 缺省时退回旧口径（全部当万能牌）。
+ */
+function pihuShanten(counts, jokers, needGroups, jokerType) {
+  if (jokers <= 1 || !Number.isInteger(jokerType)) return shantenStandard(counts, jokers, needGroups, true);
+  const c = counts.slice();
+  c[jokerType] += jokers - 1;
+  const oneWild = shantenStandard(c, 1, needGroups, true);
+  c[jokerType] += 1;
+  return Math.min(oneWild, shantenStandard(c, 0, needGroups, true));
+}
+
+/**
  * 有效向听：三条和牌路线不能等权取 min。
  *
  * 实测 1440 局：屁胡 94.2%、碰碰胡 1.7%、七对 0.4%。七对与碰碰胡的"名义向听"
@@ -32,7 +46,7 @@ import {
 function bestShanten(counts, jokers, needGroups, opt = {}) {
   const qiduiPen = opt.qiduiPen ?? 1.5;
   const pengPen = opt.pengPen ?? 1.0;
-  let best = shantenStandard(counts, jokers, needGroups, true);
+  let best = pihuShanten(counts, jokers, needGroups, opt.jokerType);
   if (needGroups === 4) best = Math.min(best, shantenQidui(counts, jokers, needGroups) + qiduiPen);
   if (!opt.hasChi) best = Math.min(best, shantenPeng(counts, jokers, needGroups) + pengPen);
   // 清一色路线（cleanPen 为数值时启用）：只数这一门的牌，别门和字牌都当废牌；清一色不限 2/5/8 将。
@@ -72,6 +86,11 @@ const DEFAULTS = {
   foldThreat: 3.0,           // 触发弃和的对手威胁阈值
   voluntaryKongShanten: 1,   // 暗杠/补杠只在向听 <= 此值时才开
   jokerKongMin: 2,           // 手上赖子达到几张才开赖杠
+  // 灵活赖杠：手上两张及以上赖子时不按张数，而是看少一张万能牌会不会变慢——不变慢就杠
+  // （白拿 ×4 和一次补牌），会变慢就留着。开启后 jokerKongMin 不再起作用。
+  jokerKongAdaptive: false,
+  // 多赖模式：手上赖子加已开赖杠合计两张及以上时，用这组参数覆盖（例如放宽大胡路线的折价）。null = 不启用
+  multiJoker: null,
   qiduiPen: 1.5,             // 七对路线的折价
   cleanPen: null,            // 清一色路线的折价（null = 不走这条路；负数 = 愿意为它慢几步）
   pengPen: 1.0,              // 碰碰胡路线的折价
@@ -161,7 +180,7 @@ export function makePolicy(profile) {
 
   return function policy(state, player) {
     const view = visibleState(state, player);
-    const P = effectiveProfile(P0, view, player);
+    const P1 = effectiveProfile(P0, view, player);
     const actions = legalActions(view, player);
     if (!actions.length) return null;
 
@@ -170,8 +189,10 @@ export function makePolicy(profile) {
 
     const hand = view.hands[player];
     const { counts, jokers, needGroups } = handShape(view, player, hand);
+    const jokersSeen = jokers + view.specialKongs[player].filter(k => k.kind === 'joker').length;
+    const P = P1.multiJoker && jokersSeen >= 2 ? { ...P1, ...P1.multiJoker } : P1;
     const opt = {
-      qiduiPen: P.qiduiPen, pengPen: P.pengPen,
+      qiduiPen: P.qiduiPen, pengPen: P.pengPen, jokerType: view.joker,
       hasChi: view.melds[player].some(m => m.kind === 'chi'),
       cleanPen: P.cleanPen,
       cleanSuits: [0, 1, 2].filter(s => view.melds[player].every(m => m.tiles.every(id => Math.floor(tileType(id) / 9) === s && tileType(id) < 27))),
@@ -243,7 +264,13 @@ export function makePolicy(profile) {
     }
 
     const jokerKongs = actions.filter(a => a.kind === 'jokerKong');
-    if (jokerKongs.length >= P.jokerKongMin) return jokerKongs[0];
+    if (P.jokerKongAdaptive && jokers >= 2) {
+      if (jokerKongs.length) {
+        const keep = shantenAfterBestDiscard(counts, jokers, needGroups, opt);
+        const kong = bestShanten(counts, jokers - 1, needGroups, opt);
+        if (kong <= keep + 1e-9) return jokerKongs[0];
+      }
+    } else if (jokerKongs.length >= P.jokerKongMin) return jokerKongs[0];
 
     const cur = bestShanten(counts, jokers, needGroups, opt);
     const voluntary = actions.filter(a => a.kind === 'concealedKong' || a.kind === 'addedKong');
