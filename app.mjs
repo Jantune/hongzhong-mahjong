@@ -17,15 +17,15 @@ import { audio } from './audio.mjs';
 
 // 电脑对手分三档，每家单独设，存在 localStorage 的 hz.ai.seat.<座位号> 里。
 // 三档都以精算的向听—进张评估为底子（只求最快胡牌、不避炮）：
-//   困难 = 精算 + 碰碰胡不折价、七对折价 0.5（锦标赛里对精算名次提前约 0.2，见 README 4.5）；
-//   激情 = 困难 + 最后一张皮子在 1 向听时才杠、搏杠上开花（杠开多六成，强度与困难相当）；
+//   困难 = 精算 + 碰碰胡/七对路线 + 将一色（乱将）路线 + 灵活赖杠 + 两张赖子以上时大胡慢一步也做；
+//   激情 = 大胡风格：七对/碰碰胡/清一色/将一色整局慢一步也做 + 灵活赖杠 + 留最后一张皮子搏杠上开花；
+//   （参数见 strategies_real.mjs 的 PROFILES.Hard / PROFILES.Passion，实验见 README 4.5）
 //   简单 = 纯精算（不加大胡路线），与托管同一套打法。
 // 你自己的托管固定用纯精算，不给选。
-const HARD_PROFILE = PROFILES.Hard;
 const AI_POLICIES = {
   Easy: { label: '简单', policy: makePolicy('Efficient') },
-  Hard: { label: '困难', policy: makePolicy(HARD_PROFILE) },
-  Passion: { label: '激情', policy: makePolicy({ ...HARD_PROFILE, holdLastSkin: true, holdSkinMaxXt: 1 }) },
+  Hard: { label: '困难', policy: makePolicy('Hard') },
+  Passion: { label: '激情', policy: makePolicy('Passion') },
 };
 const DEFAULT_AI = 'Hard';
 const HOSTED_POLICY = makePolicy('Efficient');   // 托管固定用纯精算

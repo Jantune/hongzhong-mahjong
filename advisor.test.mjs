@@ -69,3 +69,17 @@ test('建议与困难档同一口径：对子多时走七对，显示真实向�
   assert.equal(shantenLabel(top), '七对 · 1 向听', '显示的是七对的真实步数，不是带折价的排序分');
   assert.ok(['九万', '八条', '一筒', '南'].includes(NAMES[top.type]), `应当打散牌，实际打 ${NAMES[top.type]}`);
 });
+
+test('两张赖子：少一张万能牌不变慢就建议开赖杠，会变慢就留着（灵活赖杠，与困难同一判据）', () => {
+  // 四副顺子已成（两门，做不成清一色），两张赖子（七条）：屁胡只能一张当万能牌，第二张多余，杠了白拿 ×4
+  const kong = stateWith({ hand: ['一万', '二万', '三万', '七万', '八万', '九万', '四筒', '五筒', '六筒', '二筒', '三筒', '四筒', '七条', '七条'].map(T) });
+  const a = advise(visibleState(kong, 0), 0);
+  assert.equal(a.mode, 'kong', `应当建议开赖杠，实际是 ${a.mode}：${a.headline}`);
+  assert.equal(a.best.kind, 'jokerKong');
+  // 七对：四个对子 + 两张赖子，两张都要当万能牌补对子，杠一张就慢一步
+  const keep = stateWith({ hand: ['一万', '一万', '三万', '三万', '五筒', '五筒', '东', '东', '西', '北', '发', '九筒', '七条', '七条'].map(T) });
+  const b = advise(visibleState(keep, 0), 0);
+  assert.equal(b.mode, 'discard');
+  assert.notEqual(tileType(b.best.tile), T('七条'));
+  assert.equal(b.rows[0].route, '七对');
+});

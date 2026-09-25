@@ -11,41 +11,86 @@ import {
 } from './handeval.mjs';
 import { PROFILES } from './strategies_real.mjs';
 
-// 与困难档同一口径（PROFILES.Hard）：碰碰胡不折价、七对折价 0.5。
+// 与困难档同一口径（PROFILES.Hard）：路线折价、将一色（乱将）路线、两张赖子以上时的大胡折价、灵活赖杠。
 // 折价只用来给路线排序；显示给玩家的向听是所选路线的真实步数。
-const QIDUI_PEN = PROFILES.Hard.qiduiPen;
-const PENG_PEN = PROFILES.Hard.pengPen;
+const HARD = PROFILES.Hard;
+const isJiang = (t) => EYE_258.includes(t);
 
-/** 三条路线（屁胡 / 七对 / 碰碰胡）里按折价后最近的那条：score 用来排序，raw 是它的真实向听，route 是路线名。 */
-function routeShanten(counts, jokers, needGroups, hasChi) {
-  let best = { score: shantenStandard(counts, jokers, needGroups, true), route: null };
+/**
+ * 本手牌的路线口径：ctx = { hasChi, jokerType, qiduiPen, pengPen, cleanPen, cleanSuits, jiangPen, jiangOK }。
+ * 手上加已开赖杠合计两张以上时，按困难档的 multiJoker 放宽大胡折价。
+ */
+function routeContext(view, player, jokers) {
+  const melds = view.melds[player] || [];
+  const jokersSeen = jokers + (view.specialKongs[player] || []).filter((k) => k.kind === 'joker').length;
+  const P = HARD.multiJoker && jokersSeen >= 2 ? { ...HARD, ...HARD.multiJoker } : HARD;
+  return {
+    hasChi: melds.some((m) => m.kind === 'chi'),
+    jokerType: view.joker,
+    qiduiPen: P.qiduiPen, pengPen: P.pengPen, cleanPen: P.cleanPen, jiangPen: P.jiangPen,
+    cleanSuits: [0, 1, 2].filter((s) => melds.every((m) => m.tiles.every((id) => tileType(id) < 27 && Math.floor(tileType(id) / 9) === s))),
+    jiangOK: melds.every((m) => m.tiles.every((id) => isJiang(tileType(id)))),
+  };
+}
+
+/** 鸣了 tile 之后的路线口径 */
+function afterCall(ctx, kind, t) {
+  return {
+    ...ctx,
+    hasChi: ctx.hasChi || kind === 'chi',
+    cleanSuits: ctx.cleanSuits.filter((s) => t < 27 && Math.floor(t / 9) === s),
+    jiangOK: ctx.jiangOK && kind !== 'chi' && isJiang(t),
+  };
+}
+
+/** 屁胡最多一张赖子当万能牌，多出的赖子只能当它本身的牌 */
+function pihuShanten(counts, jokers, needGroups, jokerType) {
+  if (jokers <= 1 || !Number.isInteger(jokerType)) return shantenStandard(counts, jokers, needGroups, true);
+  const c = counts.slice();
+  c[jokerType] += jokers - 1;
+  const oneWild = shantenStandard(c, 1, needGroups, true);
+  c[jokerType] += 1;
+  return Math.min(oneWild, shantenStandard(c, 0, needGroups, true));
+}
+
+/** 各条路线（屁胡 / 七对 / 碰碰胡 / 清一色 / 将一色）里按折价后最近的那条：score 用来排序，raw 是它的真实向听，route 是路线名。 */
+function routeShanten(counts, jokers, needGroups, ctx) {
+  let best = { score: pihuShanten(counts, jokers, needGroups, ctx.jokerType), route: null };
   best.raw = best.score;
-  if (needGroups === 4) {
-    const raw = shantenQidui(counts, jokers, needGroups);
-    if (raw + QIDUI_PEN < best.score) best = { score: raw + QIDUI_PEN, raw, route: '七对' };
+  const consider = (raw, pen, route) => {
+    if (Number.isFinite(pen) && raw + pen < best.score) best = { score: raw + pen, raw, route };
+  };
+  if (needGroups === 4) consider(shantenQidui(counts, jokers, needGroups), ctx.qiduiPen, '七对');
+  if (!ctx.hasChi) consider(shantenPeng(counts, jokers, needGroups), ctx.pengPen, '碰碰胡');
+  if (Number.isFinite(ctx.cleanPen)) {
+    for (const s of ctx.cleanSuits) {
+      const c = counts.map((v, t) => (t >= s * 9 && t < s * 9 + 9 ? v : 0));
+      consider(shantenStandard(c, jokers, needGroups, false), ctx.cleanPen, '清一色');
+    }
   }
-  if (!hasChi) {
-    const raw = shantenPeng(counts, jokers, needGroups);
-    if (raw + PENG_PEN < best.score) best = { score: raw + PENG_PEN, raw, route: '碰碰胡' };
+  if (ctx.jiangOK) {
+    let have = jokers;
+    for (const t of EYE_258) have += counts[t];
+    consider(needGroups * 3 + 2 - have, ctx.jiangPen, '将一色');
   }
   return best;
 }
 
-function bestShanten(counts, jokers, needGroups, hasChi) {
-  return routeShanten(counts, jokers, needGroups, hasChi).score;
+function bestShanten(counts, jokers, needGroups, ctx) {
+  return routeShanten(counts, jokers, needGroups, ctx).score;
 }
 
-function shantenAfterBestDiscard(counts, jokers, needGroups, hasChi) {
+function shantenAfterBestDiscard(counts, jokers, needGroups, ctx) {
   let best = Infinity;
   for (let t = 0; t < 34; t += 1) {
     if (!counts[t]) continue;
     counts[t] -= 1;
-    const s = bestShanten(counts, jokers, needGroups, hasChi);
+    const s = bestShanten(counts, jokers, needGroups, ctx);
     counts[t] += 1;
     if (s < best) best = s;
   }
-  if (jokers > 0) best = Math.min(best, bestShanten(counts, jokers - 1, needGroups, hasChi));
-  return best === Infinity ? bestShanten(counts, jokers, needGroups, hasChi) : best;
+  if (jokers > 0) best = Math.min(best, bestShanten(counts, jokers - 1, needGroups, ctx));
+  return best === Infinity ? bestShanten(counts, jokers, needGroups, ctx) : best;
 }
 
 /** 内部用的"还差几张"换算成牌手习惯的向听数：听牌 = 0。 */
@@ -59,7 +104,7 @@ export function xiangtingText(s) {
   return `${x} 向听`;
 }
 
-/** 建议表「打完之后」那一格：真实向听，走七对或碰碰胡时注明路线，例如「七对 · 1 向听」。 */
+/** 建议表「打完之后」那一格：真实向听，不走屁胡时注明路线，例如「七对 · 1 向听」。 */
 export function shantenLabel(r) {
   const text = xiangtingText(r.raw ?? r.shanten);
   return r.route ? `${r.route} · ${text}` : text;
@@ -93,7 +138,8 @@ function warningsFor(view, player, counts, jokers, hand) {
       + `什么时候杠可以自己选。`);
   }
   if (jokers >= 2) {
-    out.push('手上两张赖子。屁胡最多一张当万能牌，另一张只能当它本身的牌用；开一个赖杠拿 ×4、剩下那张照样当万能牌。');
+    out.push('手上两张赖子。屁胡最多一张当万能牌，另一张只能当它本身的牌用；七对、碰碰胡等大胡不限。'
+      + '赖杠会让你输牌时也 ×4 赔，所以只在少一张万能牌不变慢时才开。');
   }
   let eyePairs = 0, eyeSingles = 0;
   for (const e of EYE_258) {
@@ -133,7 +179,7 @@ export function advise(view, player = 0) {
   const hand = view.hands[player];
   if (!Array.isArray(hand) || hand.some((x) => x === null)) return null;
   const { counts, jokers, needGroups } = handShape(view, player, hand);
-  const hasChi = (view.melds[player] || []).some((m) => m.kind === 'chi');
+  const ctx = routeContext(view, player, jokers);
   const vis = visibleCounts(view);
   const warnings = warningsFor(view, player, counts, jokers, hand);
 
@@ -144,7 +190,7 @@ export function advise(view, player = 0) {
 
   // ---- 别人打牌，轮到你决定吃/碰/杠/过 ----
   if (view.pending) {
-    const cur = bestShanten(counts, jokers, needGroups, hasChi);
+    const cur = bestShanten(counts, jokers, needGroups, ctx);
     const rows = [];
     for (const a of actions) {
       if (!['chi', 'pong', 'exposedKong'].includes(a.kind)) continue;
@@ -161,7 +207,7 @@ export function advise(view, player = 0) {
         }
       }
       if (!ok) continue;
-      const s = shantenAfterBestDiscard(after, jokers, needGroups - 1, hasChi || a.kind === 'chi');
+      const s = shantenAfterBestDiscard(after, jokers, needGroups - 1, afterCall(ctx, a.kind, t));
       rows.push({ action: a, kind: a.kind, gain: cur - s, shanten: s });
     }
     rows.sort((x, y) => y.gain - x.gain);
@@ -207,14 +253,14 @@ export function advise(view, player = 0) {
   const skinsInHand = hand.filter((id) => tileType(id) === 31 || tileType(id) === view.indicatorType).length;
   const liveTiles = counts.reduce((a, b) => a + b, 0) + jokers;
   if (skinKongs.length && skinsInHand === 1 && liveTiles === needGroups * 3 + 1
-    && toXiangting(routeShanten(counts, jokers, needGroups, hasChi).raw) === 0) {
+    && toXiangting(routeShanten(counts, jokers, needGroups, ctx).raw) === 0) {
     const sk = skinKongs[0];
     const waits = waitsAfterSkinKong(view, player, sk.tile, vis);
     const winnable = waits.filter((w) => w.ok || w.gangKai);
     if (winnable.length) {
       const kai = waits.filter((w) => w.gangKai);
       const jk = kongOptions.find((a) => a.kind === 'jokerKong');
-      const jokerNote = jk && jokers > 0 && toXiangting(routeShanten(counts, jokers - 1, needGroups, hasChi).raw) > 0
+      const jokerNote = jk && jokers > 0 && toXiangting(routeShanten(counts, jokers - 1, needGroups, ctx).raw) > 0
         ? `赖杠先别开：${NAMES[view.joker]}正当万能牌用，开了就不听了。`
         : '';
       return {
@@ -230,6 +276,27 @@ export function advise(view, player = 0) {
         rows: [],
         warnings: warnings.filter((w) => !w.startsWith('手上有')),
         best: sk,
+      };
+    }
+  }
+
+  // ---- 两张赖子以上：灵活赖杠（与困难同一判据） ----
+  // 少一张万能牌不变慢就杠：白拿 ×4 和一次补牌；会变慢就留着（赖杠也让自己输牌时 ×4 赔）。
+  const jokerKong = kongOptions.find((a) => a.kind === 'jokerKong');
+  if (jokerKong && jokers >= 2 && HARD.jokerKongAdaptive) {
+    const keep = shantenAfterBestDiscard(counts, jokers, needGroups, ctx);
+    const kong = routeShanten(counts, jokers - 1, needGroups, ctx);
+    if (kong.score <= keep + 1e-9) {
+      return {
+        mode: 'kong',
+        headline: '建议开赖杠 {TILE}',
+        headlineTile: jokerKong.tile,
+        detail: `少一张万能牌不会变慢（杠完 ${shantenLabel({ raw: kong.raw, route: kong.route })}，还多一次补牌），开了白拿 ×4。`
+          + '代价是之后你输牌也按 ×4 赔。',
+        kongNote: '',
+        rows: [],
+        warnings: warnings.filter((w) => !w.startsWith('手上两张赖子')),
+        best: jokerKong,
       };
     }
   }
@@ -253,14 +320,14 @@ export function advise(view, player = 0) {
     const isJoker = t === view.joker;
     let s, uk;
     // 进张用与向听同一把尺子（带七对/碰碰胡折价）来数，否则会把"拆对子"排到"打孤张"前面
-    const uopt = { pongW: 0.8, chiW: 0.2, shanten: (c, j, g) => bestShanten(c, j, g, hasChi) };
+    const uopt = { pongW: 0.8, chiW: 0.2, shanten: (c, j, g) => bestShanten(c, j, g, ctx) };
     let rs;
     if (isJoker) {
-      rs = routeShanten(counts, jokers - 1, needGroups, hasChi);
+      rs = routeShanten(counts, jokers - 1, needGroups, ctx);
       uk = ukeire(counts, jokers - 1, needGroups, vis, uopt);
     } else {
       counts[t] -= 1;
-      rs = routeShanten(counts, jokers, needGroups, hasChi);
+      rs = routeShanten(counts, jokers, needGroups, ctx);
       uk = ukeire(counts, jokers, needGroups, vis, uopt);
       counts[t] += 1;
     }

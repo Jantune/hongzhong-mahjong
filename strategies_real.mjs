@@ -137,9 +137,20 @@ const DEFAULTS = {
 };
 
 export const PROFILES = {
-  // 困难（游戏默认对手，也是建议面板的口径）：精算 + 碰碰胡不折价、七对折价 0.5。
-  // 锦标赛里对精算名次提前约 0.2（README 4.5「锦标赛最佳策略」）。
-  Hard: { ...DEFAULTS, pengPen: 0, qiduiPen: 0.5 },
+  // 困难（游戏默认对手，也是建议面板的口径）：精算 + 碰碰胡不折价、七对折价 0.5，
+  // + 灵活赖杠（少一张万能牌不变慢才杠）+ 将一色路线（乱将，折价 −1.5）
+  // + 手上加已开赖子合计两张以上时，七对/碰碰胡/清一色慢一步也做（折价 −1.5）。见 README 4.5「两张赖子」。
+  Hard: {
+    ...DEFAULTS, pengPen: 0, qiduiPen: 0.5, jokerKongAdaptive: true, jiangPen: -1.5,
+    multiJoker: { pengPen: -1.5, qiduiPen: -1.5, cleanPen: -1.5 },
+  },
+  // 激情：大胡风格。七对/碰碰胡/清一色/将一色整局都慢一步也做，灵活赖杠，最后一张皮子 1 向听时才杠搏杠上开花。
+  Passion: {
+    ...DEFAULTS, pengPen: -1.5, qiduiPen: -1.5, cleanPen: -1.5, jiangPen: -1.5,
+    jokerKongAdaptive: true, holdLastSkin: true, holdSkinMaxXt: 1,
+  },
+  // 改版前的困难（2026-09-25 之前），留作对照
+  HardOld: { ...DEFAULTS, pengPen: 0, qiduiPen: 0.5 },
   // 牌效实战流：只看进张，不做防守。用来隔离"把吃碰判断做对"本身值多少。
   Efficient: { ...DEFAULTS },
   // 攻守兼备流：真实中上水平牌手的默认形态。
