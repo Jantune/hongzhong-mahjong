@@ -93,12 +93,31 @@ test('two-joker屁胡 stays prohibited even when the winner itself reaches cap',
     { kind: 'skin', tile: 8 }, { kind: 'skin', tile: 31 },
     { kind: 'skin', tile: 31 }, { kind: 'skin', tile: 31 },
   ];
-  // 四个皮杠，胡家自身 ×16 已超过封顶 10，两赖屁胡仍然不能胡（点炮、自摸都不行）
+  // 四个皮杠，胡家自身 ×16 已超过封顶 10，两张赖子都当万能牌的屁胡仍然不能胡（点炮、自摸都不行）
   assert.equal(evalHand(pihuTwoJokers, { cap: 10, specialKongs: fourSkins, players: openWinner() }), null);
   assert.equal(evalHand(pihuTwoJokers, { cap: 10, specialKongs: fourSkins, selfDraw: true, from: null, players: openWinner() }), null);
   // 同样两张赖子，大胡照样能胡：清一色、杠上开花
   assert.ok(evalHand([0, 1, 2, 1, 2, 3, 3, 4, 5, 6, 6, 7, 33, 33], { players: openWinner({ 1: { open: true } }) }));
   assert.ok(evalHand(pihuTwoJokers, { selfDraw: true, from: null, gangKai: true, specialKongs: [{ kind: 'skin', tile: 31 }] }));
+});
+
+test('two jokers in 屁胡: one may stand as its own tile, the other as wildcard', () => {
+  // 指示牌四万 → 赖子五万。两张五万：一张当本身的五万，与六万、赖子（当七万或四万）成顺，八万做将
+  const hand = [4, 4, 5, 0, 1, 2, 9, 10, 11, 18, 19, 20, 7, 7];
+  const opts = { indicator: 3, joker: 4, players: openWinner({ 1: { open: true, kongCount: 1 } }) };
+  const r = evalHand(hand, opts);
+  assert.ok(r);
+  assert.deepEqual(r.labels, ['屁胡']);
+  assert.equal(r.hard, false);
+  assert.equal(r.W, 1);
+  assert.deepEqual(r.payments, [0, 4, 0, 0]);
+  // 两张都当原牌也组得成的就是硬屁胡：五万对子做将
+  const hardHand = [4, 4, 0, 1, 2, 0, 1, 2, 9, 10, 11, 18, 19, 20];
+  const h = evalHand(hardHand, { indicator: 3, joker: 4, players: openWinner({ 1: { open: true } }) });
+  assert.ok(h);
+  assert.equal(h.hard, true);
+  // 两张都得当万能牌才组得成的仍然不能胡（白板赖子，白板对子不是 2/5/8 将）
+  assert.equal(evalHand(pihuTwoJokers, { players: openWinner({ 1: { open: true, kongCount: 1 } }) }), null);
 });
 
 test('hard restoration: joker used as its own tile is hard胡', () => {

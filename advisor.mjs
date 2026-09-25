@@ -93,7 +93,7 @@ function warningsFor(view, player, counts, jokers, hand) {
       + `什么时候杠可以自己选。`);
   }
   if (jokers >= 2) {
-    out.push('手上两张赖子，普通屁胡被禁。开一个赖杠既解禁又拿 ×4，实测这是全场最高收益的操作。');
+    out.push('手上两张赖子。屁胡最多一张当万能牌，另一张只能当它本身的牌用；开一个赖杠拿 ×4、剩下那张照样当万能牌。');
   }
   let eyePairs = 0, eyeSingles = 0;
   for (const e of EYE_258) {
@@ -283,7 +283,7 @@ export function advise(view, player = 0) {
   top.recommended = true;
 
   // 听牌与 1 向听时列出具体的牌和场上剩余张数：
-  //   听牌   —— 真正能胡的牌（走完整的胡牌判定：有皮不能胡、两赖禁屁胡、4 点起胡）
+  //   听牌   —— 真正能胡的牌（走完整的胡牌判定：有皮不能胡、屁胡最多一张赖子当万能牌、4 点起胡）
   //   1 向听 —— 摸到就能听牌的牌
   // 默认列前三行；和第一名同分的牌全部列出（最多 6 行），免得并列最优的牌被截掉
   const tied = rows.filter((r) => Math.abs(r.score - top.score) < 1e-6).length;

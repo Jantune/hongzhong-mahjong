@@ -329,9 +329,10 @@ function evaluateHand(input = {}) {
       }
 
       const big = labels.some(name => DAHU_NAMES.has(name));
-      // 两赖禁屁胡：手持两张及以上赖子不能胡屁胡，胡家自身倍数到顶也不解除。
-      // 七对与大胡（含杠上开花）不受限，赖子张数不限。
-      if (!big && !mode.sevenPairs && physicalJokers > 1) continue;
+      // 屁胡最多一张赖子当万能牌：手持两张及以上时，其余的赖子必须当它本身的牌用
+      // （usedWild 之外的赖子已经按原牌留在 natural 里参与拆牌），这样组得成就能胡。
+      // 两张都当万能牌的屁胡不能胡，胡家自身倍数到顶也不解除。七对与大胡（含杠上开花）不受限。
+      if (!big && !mode.sevenPairs && usedWild > 1) continue;
       // 门前清的软屁胡（用了赖子；没吃、没碰、没明杠——暗杠、皮杠、赖杠不算开口）不能捉铳，只能自摸。
       // 硬屁胡门清也能捉铳；七对、大胡不受此限。4 点起胡照常要满足。
       if (!big && !mode.sevenPairs && !hard && !selfDraw && !players[winner]?.open) continue;
