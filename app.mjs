@@ -402,8 +402,18 @@ function thinkDelay(action) {
   return Math.round(ms);
 }
 
+// 自己回合的杠（皮杠、赖杠、暗杠、蓄杠）不常驻在操作栏：点选那张牌之后才出现。
+const SELF_KONGS = ['skinKong', 'jokerKong', 'concealedKong', 'addedKong'];
+
+/** 选中这张牌能做的杠（按牌种匹配：暗杠、蓄杠的 action 只挂在其中一张上） */
+function kongsForTile(actions, id) {
+  if (id === null || id === undefined) return [];
+  return actions.filter((a) => SELF_KONGS.includes(a.kind) && a.tile !== undefined && typeOf(a.tile) === typeOf(id));
+}
+
+/** 选中这张牌后回车默认做的事：能打就打出，打不出（皮子）就开杠 */
 function actionForTile(actions, id) {
-  return actions.find((a) => a.tile === id && ['discard', 'skinKong', 'jokerKong', 'concealedKong'].includes(a.kind)) || null;
+  return actions.find((a) => a.tile === id && a.kind === 'discard') || kongsForTile(actions, id)[0] || null;
 }
 
 function playerActions(state) {
@@ -460,12 +470,7 @@ function renderHand(state, actions) {
   // the hand readable while lastDraw still identifies the actual drawn tile.
   const drawn = !state.pending && state.turn === 0 && state.lastDrawPlayer === 0 ? state.lastDraw : null;
   const hand = [...(state.hands[0] || [])].sort((a, b) => Number(a === drawn) - Number(b === drawn) || typeOf(a) - typeOf(b) || a - b);
-  const handActions = actions.filter((a) => ['discard', 'skinKong', 'jokerKong', 'concealedKong'].includes(a.kind));
-  const actionById = new Map();
-  for (const a of handActions) {
-    if (a.tile !== undefined && !actionById.has(a.tile)) actionById.set(a.tile, a);
-  }
-  handRoot.innerHTML = hand.map((id) => tileButtonMarkup(state, id, actionById.get(id), selectedTile === id, id === drawn)).join('');
+  handRoot.innerHTML = hand.map((id) => tileButtonMarkup(state, id, actionForTile(actions, id), selectedTile === id, id === drawn)).join('');
   handRoot.classList.toggle('hand-disabled', !actions.length);
   if (!hand.length) handRoot.innerHTML = '<span class="empty-note">手牌已离手</span>';
 }
@@ -574,12 +579,14 @@ function renderActions(state, actions) {
   const pendingHuman = !!state.pending && pendingSeat(state) === 0;
   // 只有「过」可选时不画按钮：continueGame 会在 0.2 秒后自动替你过
   const onlyPass = pendingHuman && !autoplay && !humanMustDecide(state);
-  const nonDiscard = actions.filter((a) => a.kind !== 'discard' && !(onlyPass && a.kind === 'pass'));
+  const selectedKongs = pendingHuman ? [] : kongsForTile(actions, selectedTile);
+  const nonDiscard = actions.filter((a) => a.kind !== 'discard' && !(onlyPass && a.kind === 'pass')
+    && (!SELF_KONGS.includes(a.kind) || selectedKongs.includes(a)));
   const discard = actions.filter((a) => a.kind === 'discard');
   const chiOptions = nonDiscard.filter((a) => a.kind === 'chi');
   const buttons = [];
   if (!pendingHuman && discard.length && selectedTile !== null) {
-    const selectedAction = actionForTile(discard, selectedTile);
+    const selectedAction = discard.find((a) => a.tile === selectedTile);
     if (selectedAction) buttons.push(`<button class="primary" data-action="commit-discard">打出 ${tileName(state, selectedTile)}</button>`);
   }
   for (const action of nonDiscard) {
@@ -603,7 +610,9 @@ function renderActions(state, actions) {
   } else {
     actionRoot.innerHTML = buttons.join('');
   }
-  $('hand-hint').textContent = selectedTile !== null ? `已选 ${tileName(state, selectedTile)} · 回车确认 / Esc 取消` : state.pending && actions.some(a => a.kind !== 'pass') ? '可以响应桌上的这张牌' : '点选一张牌，再确认打出';
+  const canKong = !state.pending && actions.some((a) => SELF_KONGS.includes(a.kind));
+  const selectedOnlyKong = selectedTile !== null && !discard.some((a) => a.tile === selectedTile);
+  $('hand-hint').textContent = selectedTile !== null ? `已选 ${tileName(state, selectedTile)} · 回车${selectedOnlyKong ? '开杠' : '确认'} / Esc 取消` : state.pending && actions.some(a => a.kind !== 'pass') ? '可以响应桌上的这张牌' : canKong ? '点选一张牌，再确认打出 · 要开杠就点选那张牌' : '点选一张牌，再确认打出';
   document.querySelector('.hand-panel').classList.toggle('is-auto', autoplay);
 }
 
@@ -1164,7 +1173,7 @@ function render() {
   if (!game) return;
   const state = visibleState(game, 0);
   const actions = state.phase === 'done' ? [] : playerActions(state);
-  if (selectedTile !== null && !actions.some((a) => a.kind === 'discard' && a.tile === selectedTile)) selectedTile = null;
+  if (selectedTile !== null && !actionForTile(actions, selectedTile)) selectedTile = null;
   renderCenter(state);
   for (let p = 0; p < 4; p += 1) renderSeat(state, p);
   renderHand(state, actions);
@@ -1279,7 +1288,7 @@ function onClick(event) {
     return;
   }
   if (kind === 'commit-discard') {
-    const action = actionForTile(playerActions(visibleState(game, 0)), selectedTile);
+    const action = playerActions(visibleState(game, 0)).find((a) => a.kind === 'discard' && a.tile === selectedTile);
     if (action) perform(action);
     return;
   }
