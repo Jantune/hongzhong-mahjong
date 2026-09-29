@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createGame, visibleState, tileType, NAMES } from './game.mjs';
-import { advise, shantenLabel } from './advisor.mjs';
+import { createGame, visibleState, tileType, NAMES } from '../src/game.mjs';
+import { advise, shantenLabel } from '../src/advisor.mjs';
 
 const T = (name) => NAMES.indexOf(name);
 

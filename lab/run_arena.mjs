@@ -1,16 +1,15 @@
 // 评测台命令行入口。支持分片并行：--shard i --of n，各自写出 JSON 后合并。
 //
-//   node run_arena.mjs --lineup Guarded,Tempo,Greedy,Closed --mode duplicate --blocks 240
-//   node run_arena.mjs ... --shard 3 --of 12 --out part3.json
+//   node lab/run_arena.mjs --lineup Guarded,Tempo,Efficient,Closed --mode duplicate --blocks 240
+//   node lab/run_arena.mjs ... --shard 3 --of 12 --out part3.json
 
 import { writeFileSync, readFileSync } from 'node:fs';
 import { runDuplicate, runBust, mergeResults, report } from './arena.mjs';
-import { REAL_STRATEGIES, PROFILES, makePolicy } from './strategies_real.mjs';
-import { STRATEGIES as LEGACY } from './simulate_tournament.mjs';
-import { aiChoose } from './game.mjs';
+import { REAL_STRATEGIES, PROFILES, makePolicy } from '../src/strategies_real.mjs';
+import { aiChoose } from '../src/game.mjs';
 
 // Baseline = 引擎自带的 aiChoose，「对 3 家引擎基线」的对照组
-export const ALL_STRATEGIES = { ...LEGACY, ...REAL_STRATEGIES, Baseline: aiChoose };
+export const ALL_STRATEGIES = { ...REAL_STRATEGIES, Baseline: aiChoose };
 
 /** --profiles '{"G_d0":{"base":"Guarded","defense":0}}' 临时注册调参变体。 */
 function registerProfiles(json) {
@@ -43,7 +42,7 @@ function main() {
   }
 
   if (a.profiles) registerProfiles(a.profiles);
-  const lineup = (a.lineup || 'Guarded,Tempo,Greedy,Closed').split(',');
+  const lineup = (a.lineup || 'Guarded,Tempo,Efficient,Closed').split(',');
   for (const n of lineup) if (!ALL_STRATEGIES[n]) throw Error(`unknown strategy ${n}`);
   const cfg = {
     lineup,

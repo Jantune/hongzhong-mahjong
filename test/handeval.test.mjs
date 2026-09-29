@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ukeire, shantenStandard, shantenQidui, shantenPeng } from './handeval.mjs';
-import { NAMES } from './game.mjs';
+import { ukeire, shantenStandard, shantenQidui, shantenPeng } from '../src/handeval.mjs';
+import { NAMES } from '../src/game.mjs';
 
 // 与建议面板、稳健/精算策略相同的折价向听
 const penalized = (c, j, g) => Math.min(

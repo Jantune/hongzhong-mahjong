@@ -1,6 +1,6 @@
 // 复式对局评测台（duplicate-seating arena）。
 //
-// 修掉原 simulate_tournament.mjs 的三处方法论问题：
+// 修正旧版原型的三处方法论问题：
 //   1. 原轮转只做 4 种循环移位，桌上的相对邻座顺序恒定不变。而本规则只能吃上家，
 //      所以"谁坐谁的下家"是结构性变量。这里跑满 24 种座位排列（4 种庄位 x 6 种
 //      循环顺序），邻座与庄位同时被均衡。
@@ -10,7 +10,7 @@
 //   3. 原主指标"比赛胜率 / 场均净胜分"耦合了 -300 飞局这个终止条件。这里主指标
 //      改为每小局净分，并对 block（独立牌局种子）做 bootstrap 置信区间。
 
-import { createGame, nextRound, applyAction, tileType } from './game.mjs';
+import { createGame, nextRound, applyAction, tileType } from '../src/game.mjs';
 
 export const PERMS = (() => {
   const out = [];

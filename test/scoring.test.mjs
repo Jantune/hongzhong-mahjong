@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { evaluateHand, settle } from './scoring.mjs';
+import { evaluateHand, settle } from '../src/scoring.mjs';
 
 const makePlayers = (changes = {}) => [0, 1, 2, 3].map(i => ({
   open: false, kongCount: 0, jokerKongCount: 0, ...(changes[i] || {}),

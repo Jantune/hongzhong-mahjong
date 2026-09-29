@@ -206,7 +206,7 @@ export function endpointPreview(providerId, override, model) {
   return providerOf(providerId).endpoint(base, model || '<模型名>');
 }
 
-/** 本地转发端点是否可用（只有通过 node server.mjs 打开页面时才有）。 */
+/** 本地转发端点是否可用（只有通过 npm start 打开页面时才有）。 */
 export async function probeProxy(signal) {
   if (typeof location === 'undefined' || !/^https?:$/.test(location.protocol)) return null;
   try {
@@ -215,7 +215,7 @@ export async function probeProxy(signal) {
     const j = await res.json();
     return j?.ok ? j.providers || {} : null;
   } catch {
-    return null;   // 直接打开 HTML 文件、或没跑 server.mjs
+    return null;   // 直接打开 HTML 文件、或没跑 npm start
   }
 }
 
@@ -235,7 +235,7 @@ async function askViaProxy({ provider, key, model, system, messages, baseUrl, si
     });
   } catch (e) {
     if (e?.name === 'AbortError') throw e;
-    throw new Error(`连不上本地转发服务：${e.message}。确认 node server.mjs 还在跑。`);
+    throw new Error(`连不上本地转发服务：${e.message}。确认 npm start 还在跑。`);
   }
   const j = await res.json().catch(() => null);
   if (!res.ok || !j?.ok) throw new Error(j?.error || `转发服务返回 ${res.status}`);
@@ -264,7 +264,7 @@ function withTimeout(signal, ms) {
 
 /** 这次请求实际会打到哪里，给界面显示用。 */
 export function describeTarget({ provider, baseUrl, viaProxy }) {
-  if (viaProxy) return '本地转发（node server.mjs）';
+  if (viaProxy) return '本地转发（npm start）';
   const base = resolveBase(provider, baseUrl);
   try { return `直连 ${new URL(base).host}`; } catch { return base ? `直连 ${base}` : '未填接口地址'; }
 }

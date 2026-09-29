@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 // Keep each ES module as one data URL and connect them with an import map.
 // This avoids recursively embedding shared modules in every importer.
-const root = dirname(fileURLToPath(import.meta.url));
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const output = join(root, 'dist');
 const modules = new Map();
 const visiting = new Set();
@@ -23,7 +23,8 @@ function collect(file) {
   modules.set(file, code);
   visiting.delete(file);
 }
-collect(join(root, 'app.mjs'));
+const entry = join(root, 'src/app.mjs');
+collect(entry);
 const importMap = {};
 for (const [file, source] of modules) {
   const rewritten = source.replace(/(['"])(\.\/[^'"]+\.mjs)\1/g,
@@ -55,13 +56,13 @@ const audioJson = audioBundle();
 const html = readFileSync(join(root, 'index.html'), 'utf8')
   .replace('<link rel="stylesheet" href="style.css">',
     () => `<style>${readFileSync(join(root, 'style.css'), 'utf8')}</style>`)
-  .replace('<script type="module" src="app.mjs"></script>', () => [
+  .replace('<script type="module" src="src/app.mjs"></script>', () => [
     `<script type="application/json" id="hz-audio">${audioJson}</script>`,
     `<script type="importmap">${JSON.stringify({ imports: importMap })}</script>`,
     // 入口必须写成内联 import：<script src> 的地址不经过 import map，hz: 会被当成网络协议
-    '<script type="module">import "hz:app.mjs";</script>',
+    `<script type="module">import "${moduleKey(entry)}";</script>`,
   ].join(''));
-if (html.includes('href="style.css"') || html.includes('src="app.mjs"')) {
+if (html.includes('href="style.css"') || html.includes('src="src/app.mjs"')) {
   throw new Error('External application assets were not embedded');
 }
 mkdirSync(output, { recursive: true });

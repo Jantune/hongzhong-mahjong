@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { situationHash } from './strategies_real.mjs';
+import { situationHash } from '../src/strategies_real.mjs';
 
 test('situationHash is a uniform number in [0, 1), so blunder rates mean what they say', () => {
   const xs = [];

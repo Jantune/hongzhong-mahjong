@@ -24,7 +24,7 @@ async function main() {
       continue;
     }
 
-    const file = path.join(__dirname, 'assets', 'tiles', `${name}.svg`);
+    const file = path.join(__dirname, '..', 'assets', 'tiles', `${name}.svg`);
     const content = fs.readFileSync(file, 'utf8');
 
     // Extract layer1 content
@@ -70,7 +70,7 @@ export function ensureTileSprite() {
 }
 `;
 
-  fs.writeFileSync(path.join(__dirname, 'tile-assets.mjs'), jsContent, 'utf8');
+  fs.writeFileSync(path.join(__dirname, '..', 'src', 'tile-assets.mjs'), jsContent, 'utf8');
   console.log('Successfully wrote tile-assets.mjs, length:', jsContent.length);
 }
 

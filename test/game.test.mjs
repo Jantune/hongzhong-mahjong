@@ -11,7 +11,7 @@ import {
   tileType,
   validateState,
   visibleState,
-} from './game.mjs';
+} from '../src/game.mjs';
 
 function passAll(state) {
   let s = state;
